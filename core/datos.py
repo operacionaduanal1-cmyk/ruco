@@ -84,11 +84,16 @@ def inicializar():
         rol TEXT NOT NULL,
         cliente_ligado TEXT,
         permisos TEXT,
+        estatus_permitidos TEXT,
         activo INTEGER DEFAULT 1,
         creado TEXT)""")
     # Asegurar columna permisos si la tabla ya existía
     try:
         _exec("ALTER TABLE usuarios ADD COLUMN permisos TEXT")
+    except Exception:
+        pass
+    try:
+        _exec("ALTER TABLE usuarios ADD COLUMN estatus_permitidos TEXT")
     except Exception:
         pass
     _exec("""CREATE TABLE IF NOT EXISTS historial (
@@ -561,3 +566,33 @@ def editar_usuario(uid, nombre, usuario, rol, cliente_ligado, admin_actor, passw
              VALUES ('usuarios',?,?,?,?,?,?)""",
           (uid, admin_actor, "editado", "", f"{nombre} ({rol})", datetime.now().isoformat()))
     return True, "Usuario actualizado."
+
+
+# ============================================================
+# ESTATUS PERMITIDOS POR USUARIO
+# ============================================================
+def guardar_estatus_permitidos(uid, lista_estatus, admin_actor):
+    """Guarda qué estatus específicos puede poner el usuario."""
+    import json
+    # Reutilizamos la columna permisos guardando un dict, pero para no romper lo existente
+    # usamos una columna aparte: estatus_permitidos
+    try:
+        _exec("ALTER TABLE usuarios ADD COLUMN estatus_permitidos TEXT")
+    except Exception:
+        pass
+    _exec("UPDATE usuarios SET estatus_permitidos=? WHERE id=?",
+          (json.dumps(lista_estatus), uid))
+
+def obtener_estatus_permitidos(uid):
+    """Devuelve la lista de estatus que el usuario puede poner. Vacío = ninguno asignado."""
+    import json
+    try:
+        filas, _ = _exec("SELECT estatus_permitidos FROM usuarios WHERE id=?", (uid,))
+    except Exception:
+        return []
+    if filas and filas[0].get("estatus_permitidos"):
+        try:
+            return json.loads(filas[0]["estatus_permitidos"])
+        except Exception:
+            return []
+    return []

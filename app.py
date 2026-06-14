@@ -267,22 +267,43 @@ def panel_usuarios():
                         st.success(st.session_state[f"msg_perm_{u['id']}"])
                         del st.session_state[f"msg_perm_{u['id']}"]
                     permisos_actuales = datos.obtener_permisos(u["id"])
+                    estatus_actuales = datos.obtener_estatus_permitidos(u["id"])
                     seleccion = []
                     # casillas en 3 columnas
                     campos = datos.CAMPOS_EDITABLES
                     colp = st.columns(3)
+                    marco_estatus = False
                     for i, (clave, etiqueta) in enumerate(campos):
                         with colp[i % 3]:
                             marcado = st.checkbox(etiqueta, value=(clave in permisos_actuales),
                                                   key=f"perm_{u['id']}_{clave}")
                             if marcado:
                                 seleccion.append(clave)
+                                if clave == "estatus":
+                                    marco_estatus = True
+                    # Si marcó ESTATUS, mostrar cuáles estatus puede poner
+                    estatus_sel = []
+                    if marco_estatus:
+                        st.markdown("**¿Qué estatus puede poner este usuario?**")
+                        st.caption("Marca solo los que tiene permitido asignar. Al menos uno.")
+                        cols_e = st.columns(4)
+                        for j, est in enumerate(reglas.ESTATUS):
+                            with cols_e[j % 4]:
+                                if st.checkbox(est, value=(est in estatus_actuales),
+                                               key=f"est_{u['id']}_{est}"):
+                                    estatus_sel.append(est)
                     if st.button("Guardar permisos", type="primary", key=f"savperm_{u['id']}"):
-                        if "gestionar_usuarios" in permisos_actuales:
-                            seleccion.append("gestionar_usuarios")
-                        datos.guardar_permisos(u["id"], seleccion, actor)
-                        st.session_state[f"msg_perm_{u['id']}"] = "✅ Permisos guardados."
-                        st.rerun()
+                        # Validar: si tiene permiso de estatus, debe marcar al menos uno
+                        if marco_estatus and not estatus_sel:
+                            st.error("Diste permiso de Estatus. Marca al menos un estatus que pueda poner.")
+                        else:
+                            if "gestionar_usuarios" in permisos_actuales:
+                                seleccion.append("gestionar_usuarios")
+                            datos.guardar_permisos(u["id"], seleccion, actor)
+                            # guardar estatus permitidos (vacío si no marcó estatus)
+                            datos.guardar_estatus_permitidos(u["id"], estatus_sel if marco_estatus else [], actor)
+                            st.session_state[f"msg_perm_{u['id']}"] = "✅ Permisos guardados."
+                            st.rerun()
 
 # ---------- PANEL ADMIN: HISTORIAL ----------
 def panel_historial():
@@ -314,9 +335,11 @@ def _ficha_edicion(ct, actor, es_admin):
     # Determinar qué campos puede editar este usuario
     if es_admin:
         permitidos = [c[0] for c in datos.CAMPOS_EDITABLES]  # admin edita todo
+        estatus_permitidos = reglas.ESTATUS  # admin pone cualquiera
     else:
         usr = datos.obtener_usuario_por_username(actor)
         permitidos = datos.obtener_permisos(usr["id"]) if usr else []
+        estatus_permitidos = datos.obtener_estatus_permitidos(usr["id"]) if usr else []
 
     def puede(campo):
         return campo in permitidos
@@ -333,7 +356,7 @@ def _ficha_edicion(ct, actor, es_admin):
     regs = datos.listar_catalogo("REGIMEN")
     dets = datos.listar_catalogo("DETALLE")
     t3s = datos.listar_catalogo("T3")
-    ests = reglas.ESTATUS
+    ests = estatus_permitidos  # solo los que este usuario puede poner
 
     def opciones_con_actual(catalogo, valor_actual):
         """Lista que arranca con el valor actual del contenedor ya seleccionado."""
@@ -381,21 +404,31 @@ def _ficha_edicion(ct, actor, es_admin):
         if puede("detalle"): n_det = st.selectbox("DETALLE", opciones_con_actual(dets, ct.get("detalle")), key=f"ed_det_{ct['id']}")
         else: mostrar_solo_lectura("DETALLE", ct.get("detalle"))
     with r3[2]:
-        if puede("fecha_pago"): n_fp = st.text_input("FECHA DE PAGO", value=ct.get("fecha_pago") or "", placeholder="dd/mm/yyyy", max_chars=10, key=f"ed_fp_{ct['id']}")
-        else: mostrar_solo_lectura("FECHA DE PAGO", ct.get("fecha_pago"))
-    # Fila 4: estatus, T3
-    r4 = st.columns(3)
-    with r4[0]:
         if puede("estatus"): n_est = st.selectbox("ESTATUS", opciones_con_actual(ests, ct.get("estatus")), key=f"ed_est_{ct['id']}")
         else: mostrar_solo_lectura("ESTATUS", ct.get("estatus") or "SIN ESTATUS")
+    # Fila 4: fecha de pago, T3
+    r4 = st.columns(3)
+    with r4[0]:
+        if puede("fecha_pago"): n_fp = st.text_input("FECHA DE PAGO", value=ct.get("fecha_pago") or "", placeholder="dd/mm/yyyy", max_chars=10, key=f"ed_fp_{ct['id']}")
+        else: mostrar_solo_lectura("FECHA DE PAGO", ct.get("fecha_pago"))
     with r4[1]:
         if puede("modulo_t3"): n_t3 = st.selectbox("MODULO T3", opciones_con_actual(t3s, ct.get("modulo_t3")), key=f"ed_t3_{ct['id']}")
         else: mostrar_solo_lectura("MODULO T3", ct.get("modulo_t3"))
-    # Observaciones
-    if puede("observaciones"):
-        n_obs = st.text_area("OBSERVACIONES", value=ct.get("observaciones") or "", key=f"ed_obs_{ct['id']}")
+    # Observaciones acumulativas (historial con autor, no se borra)
+    obs_historial = ct.get("observaciones") or ""
+    st.markdown("<div style='font-size:0.72rem;color:#9aa0a6;margin-top:8px'>OBSERVACIONES</div>", unsafe_allow_html=True)
+    if obs_historial.strip():
+        st.markdown(
+            "<div style='background:#1a1d23;border:1px solid #2a2e35;border-radius:8px;"
+            "padding:10px;white-space:pre-wrap;color:#cfcfcf;font-size:0.85rem;max-height:220px;overflow-y:auto'>"
+            f"{obs_historial}</div>", unsafe_allow_html=True)
     else:
-        mostrar_solo_lectura("OBSERVACIONES", ct.get("observaciones"))
+        st.caption("Sin observaciones todavía.")
+    n_obs = ""
+    if puede("observaciones"):
+        n_obs = st.text_area("Agregar nueva observación (se anexa con tu nombre y la fecha)",
+                             value="", placeholder="Escribe aquí la nueva observación...",
+                             key=f"ed_obs_{ct['id']}")
 
     # Si no puede editar NADA, avisar
     if not permitidos and not es_admin:
@@ -428,8 +461,18 @@ def _ficha_edicion(ct, actor, es_admin):
             datos.actualizar_campo_contenedor(ct["id"], "eta", n_eta.strip(), actor)
         if puede("fecha_pago") and n_fp != "(sin cambio)" and n_fp.strip() != (ct.get("fecha_pago") or "").strip():
             datos.actualizar_campo_contenedor(ct["id"], "fecha_pago", n_fp.strip(), actor)
-        if puede("observaciones") and n_obs != "(sin cambio)" and reglas.normalizar_texto(n_obs) != (ct.get("observaciones") or "").strip():
-            datos.actualizar_campo_contenedor(ct["id"], "observaciones", reglas.normalizar_texto(n_obs), actor)
+        if puede("observaciones") and n_obs.strip():
+            # Anexar observación con nombre del perfil y fecha/hora del sistema
+            usr_actual = datos.obtener_usuario_por_username(actor)
+            nombre_perfil = usr_actual["nombre"] if usr_actual else actor
+            sello = datetime.now().strftime("%d/%m/%Y %H:%M")
+            nueva_obs = f"{nombre_perfil} - {reglas.normalizar_texto(n_obs)} - {sello}"
+            historial_prev = (ct.get("observaciones") or "").strip()
+            if historial_prev:
+                obs_final = historial_prev + "\n-----\n" + nueva_obs
+            else:
+                obs_final = nueva_obs
+            datos.actualizar_campo_contenedor(ct["id"], "observaciones", obs_final, actor)
         st.session_state[f"msg_guardado_{ct['id']}"] = "✅ Cambios guardados."
         st.session_state[f"editando_{ct['id']}"] = False
         st.rerun()

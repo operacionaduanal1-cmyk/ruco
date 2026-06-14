@@ -137,6 +137,15 @@ def cambiar_estado_usuario(uid, activo, admin_actor):
              VALUES ('usuarios',?,?,?,?,?,?)""",
           (uid, admin_actor, "activo", str(pact), str(1 if activo else 0), datetime.now().isoformat()))
 
+def eliminar_usuario(uid, admin_actor):
+    """Borra un usuario por completo. No se puede deshacer."""
+    prev, _ = _exec("SELECT usuario FROM usuarios WHERE id=?", (uid,))
+    nombre = prev[0]["usuario"] if prev else str(uid)
+    _exec("DELETE FROM usuarios WHERE id=?", (uid,))
+    _exec("""INSERT INTO historial (tabla, registro_id, usuario, campo, valor_anterior, valor_nuevo, fecha)
+             VALUES ('usuarios',?,?,?,?,?,?)""",
+          (uid, admin_actor, "eliminado", nombre, "(borrado)", datetime.now().isoformat()))
+
 def historial_reciente(limite=50):
     filas, _ = _exec("SELECT * FROM historial ORDER BY id DESC LIMIT ?", (limite,))
     return filas

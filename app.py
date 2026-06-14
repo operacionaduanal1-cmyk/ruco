@@ -160,12 +160,13 @@ def panel_usuarios():
 
     st.markdown("##### Usuarios registrados")
     for u in datos.listar_usuarios():
-        c1, c2, c3, c4 = st.columns([2.5, 2, 1.3, 1])
+        c1, c2, c3, c4, c5 = st.columns([2.5, 2, 1.3, 1, 1])
         estado = "<span class='badge-on'>● Activo</span>" if u["activo"] else "<span class='badge-off'>○ Inactivo</span>"
         ligado = f" · cliente: {u['cliente_ligado']}" if u["cliente_ligado"] else ""
         c1.markdown(f"**{u['nombre']}**  \n`{u['usuario']}`")
         c2.markdown(f"{u['rol']}{ligado}")
         c3.markdown(estado, unsafe_allow_html=True)
+        # No se puede tocar al admin principal
         if u["rol"] != "Administrador" or u["usuario"] != "admin":
             if u["activo"]:
                 if c4.button("Desactivar", key=f"off{u['id']}"):
@@ -173,6 +174,19 @@ def panel_usuarios():
             else:
                 if c4.button("Activar", key=f"on{u['id']}"):
                     datos.cambiar_estado_usuario(u["id"], True, actor); st.rerun()
+            # Eliminar (con confirmación)
+            if c5.button("Eliminar", key=f"delu{u['id']}"):
+                st.session_state[f"borrar_user_{u['id']}"] = True
+            if st.session_state.get(f"borrar_user_{u['id']}"):
+                st.warning(f"¿Eliminar a **{u['nombre']}** ({u['usuario']})? No se puede deshacer.")
+                bc = st.columns(2)
+                if bc[0].button("Sí, eliminar", type="primary", key=f"delu_si{u['id']}"):
+                    datos.eliminar_usuario(u["id"], actor)
+                    st.session_state[f"borrar_user_{u['id']}"] = False
+                    st.rerun()
+                if bc[1].button("Cancelar", key=f"delu_no{u['id']}"):
+                    st.session_state[f"borrar_user_{u['id']}"] = False
+                    st.rerun()
 
 # ---------- PANEL ADMIN: HISTORIAL ----------
 def panel_historial():

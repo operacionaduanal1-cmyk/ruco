@@ -210,11 +210,18 @@ def crear_contenedor(aduana, contenedor_limpio, cliente, consecutivo, anio, foli
           (actor, "alta", "", f"{consecutivo} {contenedor_limpio}", datetime.now().isoformat()))
     return consecutivo
 
-def listar_contenedores(aduana):
-    filas, _ = _exec(
-        "SELECT * FROM contenedores WHERE aduana=? AND activo=1 ORDER BY id DESC",
-        (aduana,))
+def listar_contenedores(aduana, limite=None, offset=0):
+    sql = "SELECT * FROM contenedores WHERE aduana=? AND activo=1 ORDER BY id DESC"
+    params = [aduana]
+    if limite is not None:
+        sql += " LIMIT ? OFFSET ?"
+        params += [limite, offset]
+    filas, _ = _exec(sql, tuple(params))
     return filas
+
+def contar_contenedores(aduana):
+    filas, _ = _exec("SELECT COUNT(*) AS n FROM contenedores WHERE aduana=? AND activo=1", (aduana,))
+    return filas[0]["n"] if filas else 0
 
 def actualizar_campo_contenedor(cid, campo, valor_nuevo, actor):
     """Actualiza un campo y registra en historial."""
@@ -256,3 +263,54 @@ def eliminar_contenedor(cid, actor):
     _exec("""INSERT INTO historial (tabla, registro_id, usuario, campo, valor_anterior, valor_nuevo, fecha)
              VALUES ('contenedores',?,?,?,?,?,?)""",
           (cid, actor, "eliminado", "1", "0", datetime.now().isoformat()))
+
+
+# ============================================================
+# CATÁLOGOS (vienen de la hoja BASE, editables por admin)
+# ============================================================
+def inicializar_catalogos():
+    _exec("""CREATE TABLE IF NOT EXISTS catalogos (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        tipo TEXT NOT NULL,
+        valor TEXT NOT NULL,
+        activo INTEGER DEFAULT 1)""")
+
+def cargar_catalogos_iniciales(catalogos_dict):
+    """Carga los catálogos desde el diccionario de la hoja BASE, solo si están vacíos."""
+    filas, _ = _exec("SELECT COUNT(*) AS n FROM catalogos")
+    if filas and filas[0]["n"] > 0:
+        return  # ya cargados, no duplicar
+    for tipo, valores in catalogos_dict.items():
+        for v in valores:
+            _exec("INSERT INTO catalogos (tipo, valor, activo) VALUES (?,?,1)", (tipo, v))
+
+def listar_catalogo(tipo):
+    filas, _ = _exec(
+        "SELECT valor FROM catalogos WHERE tipo=? AND activo=1 ORDER BY valor", (tipo,))
+    return [f["valor"] for f in filas]
+
+def tipos_catalogo():
+    filas, _ = _exec("SELECT DISTINCT tipo FROM catalogos WHERE activo=1 ORDER BY tipo")
+    return [f["tipo"] for f in filas]
+
+def agregar_valor_catalogo(tipo, valor, actor):
+    from datetime import datetime
+    valor = valor.strip().upper()
+    existe, _ = _exec("SELECT id FROM catalogos WHERE tipo=? AND valor=?", (tipo, valor))
+    if existe:
+        return False, "Ese valor ya existe en el catálogo."
+    _exec("INSERT INTO catalogos (tipo, valor, activo) VALUES (?,?,1)", (tipo, valor))
+    _exec("""INSERT INTO historial (tabla, registro_id, usuario, campo, valor_anterior, valor_nuevo, fecha)
+             VALUES ('catalogos',0,?,?,?,?,?)""",
+          (actor, tipo, "", valor, datetime.now().isoformat()))
+    return True, f"Agregado a {tipo}: {valor}"
+
+def crear_tipo_catalogo(nuevo_tipo, actor):
+    """Crea un nuevo catálogo (columna nueva) con un valor inicial vacío de control."""
+    nuevo_tipo = nuevo_tipo.strip().upper()
+    existe, _ = _exec("SELECT id FROM catalogos WHERE tipo=? LIMIT 1", (nuevo_tipo,))
+    if existe:
+        return False, "Ese catálogo ya existe."
+    # marcador para que el tipo exista aunque no tenga valores aún
+    _exec("INSERT INTO catalogos (tipo, valor, activo) VALUES (?,'(vacío)',0)", (nuevo_tipo,))
+    return True, f"Catálogo creado: {nuevo_tipo}"

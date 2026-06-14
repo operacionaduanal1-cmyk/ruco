@@ -1,0 +1,147 @@
+{
+ "CLIENTE": [
+  "JOHN",
+  "ALLEN",
+  "YUFENG",
+  "DANIEL",
+  "SONIA",
+  "KEVIN",
+  "YUAN",
+  "JULIO",
+  "ROSY",
+  "URANO",
+  "VERONICA",
+  "MIKE",
+  "JOHN CHEN",
+  "AMY",
+  "ALICIA",
+  "JESSICA",
+  "LUIS",
+  "HE ZHANG",
+  "LUIS LEO",
+  "JASON",
+  "JIMMY",
+  "BOBBY",
+  "CARLOS",
+  "TRADEOLA",
+  "CDL SUPLY / FERNANDA",
+  "AGATHUM",
+  "HAN LEI",
+  "ANTONIO",
+  "CAZA PRECIOS",
+  "LIN",
+  "SAUL GARRIDO",
+  "PABLO",
+  "OSCAR LOPEZ",
+  "JORGE ZARAGOZA",
+  "ALONDRA",
+  "LORENA",
+  "OSVALDO",
+  "LUHAI",
+  "MIGUEL",
+  "JORGE MARQUEZ",
+  "DIEGO",
+  "CINDY",
+  "DANIEL MARTINEZ",
+  "VICTOR",
+  "SORAFLORA",
+  "CREATE BRILLANCE",
+  "IIDSA",
+  "MONTESINOS",
+  "BENJAMIN",
+  "SUMMER"
+ ],
+ "TERMINALES": [
+  "OCUPA",
+  "CONTECON",
+  "SSA",
+  "TIMSA"
+ ],
+ "IMPORTADOR": [
+  "HERTZ",
+  "MG",
+  "SONIA",
+  "SORA",
+  "GSG",
+  "ULTRA",
+  "BELLE",
+  "AYUTLA",
+  "SIWAKK",
+  "ABSOLU",
+  "FLUMING",
+  "MAGTEK",
+  "VICTOR",
+  "SORAFLORA",
+  "IIDSA",
+  "MONTESINOS",
+  "LABCO",
+  "ACCIONES"
+ ],
+ "DETALLE": [
+  "CON DETALLE",
+  "SIN DETALLE"
+ ],
+ "REGIMEN": [
+  "A1",
+  "IN",
+  "R1"
+ ],
+ "ESTATUS": [
+  "PENDIENTE INFORMACION",
+  "ANALISIS",
+  "GLOSA",
+  "CAPTURA",
+  "OK OPERACIONES",
+  "DESPACHADO",
+  "CANCELADO",
+  "PAGADO",
+  "PAMA",
+  "ABANDONO",
+  "DESISTIDO",
+  "MODULADO",
+  "LIBERADO",
+  "PROGRAMADO",
+  "RETENIDO",
+  "REVISION"
+ ],
+ "MODALIDAD": [
+  "FFCC",
+  "TRUCK"
+ ],
+ "FINANZAS": [
+  "AUTORIZADO/FINANZAS",
+  "NO AUTORIZADO/FINANZAS",
+  "PENDIENTE"
+ ],
+ "AUTORIZACION": [
+  "OK",
+  "ENVIADO",
+  "PENDIENTE"
+ ],
+ "TERMINAL": [
+  "LCT",
+  "APM"
+ ],
+ "EIR": [
+  "PENDIENTE",
+  "OK"
+ ],
+ "REVALIDADO": [
+  "OK",
+  "ENVIADO",
+  "PENDIENTE"
+ ],
+ "AA": [
+  "MARIO ALBERTO 3382",
+  "TENA BETANCOURT 3545",
+  "EDUARDO DEHESA 1748",
+  "JUANA 3431",
+  "RAUL PIZ 1681",
+  "SITTON 3539",
+  "JOSE ALAMILLO 1916"
+ ],
+ "T3": [
+  "VERDE",
+  "ROJO"
+ ]
+}

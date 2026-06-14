@@ -253,6 +253,27 @@ def _ficha_edicion(ct, actor, es_admin):
         st.rerun()
 
 
+def _crear_alta(aduana_key, limpio, cliente_norm, aa_final, ref_val, ped_val, actor, clasif, forzado):
+    anio = datetime.now().year
+    folio = datos.ultimo_folio(aduana_key, anio) + 1
+    consec = reglas.generar_consecutivo(aduana_key, anio, folio - 1)
+    if forzado:
+        datos.crear_contenedor_forzado(aduana_key, limpio, cliente_norm,
+            consec, anio, folio, actor, "alta duplicada autorizada por admin")
+        st.warning(f"Alta DUPLICADA autorizada: {consec} · {limpio}")
+    else:
+        datos.crear_contenedor(aduana_key, limpio, cliente_norm, consec, anio, folio, actor)
+        if clasif == "REINGRESO":
+            st.success(f"Reingreso: {consec} · {limpio} (+3 meses).")
+        else:
+            st.success(f"Alta: {consec} · {limpio}")
+    nuevo = datos.buscar_contenedor_existente(limpio)
+    if nuevo:
+        if aa_final: datos.actualizar_campo_contenedor(nuevo["id"], "aa", aa_final, actor)
+        if ref_val: datos.actualizar_campo_contenedor(nuevo["id"], "referencia", ref_val, actor)
+        if ped_val: datos.actualizar_campo_contenedor(nuevo["id"], "pedimento", ped_val, actor)
+
+
 def panel_aduana(aduana_key, aduana_nombre):
     actor = st.session_state.usuario["usuario"]
     es_admin = st.session_state.usuario["rol"] == "Administrador"
@@ -261,30 +282,23 @@ def panel_aduana(aduana_key, aduana_nombre):
     # Limpiar campos tras un alta exitosa (cada registro va en blanco)
     flag = f"limpiar_alta_{aduana_key}"
     if st.session_state.get(flag):
-        for k in [f"alta_cont_{aduana_key}", f"alta_clinew_{aduana_key}",
-                  f"alta_ref_{aduana_key}", f"alta_ped_{aduana_key}"]:
+        for k in [f"alta_cont_{aduana_key}", f"alta_ref_{aduana_key}", f"alta_ped_{aduana_key}"]:
             if k in st.session_state: st.session_state[k] = ""
+        for k in [f"alta_clisel_{aduana_key}", f"alta_aa_{aduana_key}"]:
+            if k in st.session_state: del st.session_state[k]
         st.session_state[flag] = False
 
     with st.expander("➕ DAR DE ALTA UN CONTENEDOR", expanded=True):
         clientes_cat = datos.listar_catalogo("CLIENTE")
         aas_cat = datos.listar_catalogo("AA")
 
-        # Fila 1: contenedor, cliente
+        # Fila 1: contenedor, cliente (solo selección, nuevos se agregan en Base)
         r1 = st.columns(2)
         cont_raw = r1[0].text_input("NÚMERO DE CONTENEDOR", max_chars=11,
                                     key=f"alta_cont_{aduana_key}",
                                     help="11 caracteres: 4 letras + 7 dígitos")
-        if es_admin:
-            cliente_sel = r1[1].selectbox("CLIENTE", ["(escribir nuevo)"] + clientes_cat,
-                                          key=f"alta_clisel_{aduana_key}")
-        else:
-            # No-admin: solo seleccionar de la lista, no escribir
-            cliente_sel = r1[1].selectbox("CLIENTE", ["(seleccionar)"] + clientes_cat,
-                                          key=f"alta_clisel_{aduana_key}")
-        cliente_nuevo = ""
-        if es_admin and cliente_sel == "(escribir nuevo)":
-            cliente_nuevo = st.text_input("Nuevo cliente", key=f"alta_clinew_{aduana_key}")
+        cliente_sel = r1[1].selectbox("CLIENTE", ["(seleccionar)"] + clientes_cat,
+                                      key=f"alta_clisel_{aduana_key}")
 
         # Fila 2: agente aduanal, referencia, pedimento
         r2 = st.columns(3)
@@ -295,12 +309,7 @@ def panel_aduana(aduana_key, aduana_nombre):
         if st.button("DAR DE ALTA", type="primary", key=f"alta_btn_{aduana_key}"):
             limpio = reglas.limpiar_contenedor(cont_raw)
             ok, msg = reglas.validar_contenedor(cont_raw)
-            if cliente_sel in ("(escribir nuevo)",) and es_admin:
-                cliente_final = cliente_nuevo
-            elif cliente_sel in ("(seleccionar)", "(escribir nuevo)"):
-                cliente_final = ""
-            else:
-                cliente_final = cliente_sel
+            cliente_final = "" if cliente_sel == "(seleccionar)" else cliente_sel
             cliente_norm = reglas.normalizar_texto(cliente_final)
             aa_final = "" if aa_sel == "(opcional)" else aa_sel
 
@@ -309,58 +318,60 @@ def panel_aduana(aduana_key, aduana_nombre):
             elif not ok:
                 st.error(f"Contenedor inválido: {msg}")
             else:
-                # Validar referencia/pedimento si vienen
                 ref_val = ""; ped_val = ""
+                err = None
                 if ref_raw.strip():
                     okr, ref_val = reglas.validar_referencia(ref_raw)
-                    if not okr: st.error(f"REFERENCIA: {ref_val}"); return
-                if ped_raw.strip():
+                    if not okr: err = f"REFERENCIA: {ref_val}"
+                if ped_raw.strip() and not err:
                     okp, ped_val = reglas.validar_pedimento(ped_raw)
-                    if not okp: st.error(f"PEDIMENTO: {ped_val}"); return
+                    if not okp: err = f"PEDIMENTO: {ped_val}"
+                if err:
+                    st.error(err)
+                else:
+                    previo = datos.buscar_contenedor_existente(limpio)
+                    clasif = "NUEVO"
+                    if previo:
+                        m = reglas.meses_entre(previo.get("creado"))
+                        clasif = reglas.evaluar_duplicado(m)
+                    ped_dup = datos.buscar_pedimento_duplicado(aa_final, ped_val) if ped_val else None
+                    hay_dup = clasif == "DUDOSO" or ped_dup is not None
 
-                # Regla duplicado contenedor (ventana 3 meses)
-                previo = datos.buscar_contenedor_existente(limpio)
-                clasif = "NUEVO"
-                if previo:
-                    m = reglas.meses_entre(previo.get("creado"))
-                    clasif = reglas.evaluar_duplicado(m)
-
-                # Regla duplicado pedimento (mismo AA + pedimento)
-                ped_dup = datos.buscar_pedimento_duplicado(aa_final, ped_val) if ped_val else None
-
-                hay_dup = clasif == "DUDOSO" or ped_dup is not None
-                if hay_dup and not es_admin:
                     avisos = []
                     if clasif == "DUDOSO":
-                        avisos.append(f"contenedor ya existe (menos de 3 meses, {previo.get('consecutivo')})")
+                        avisos.append(f"contenedor ya existe (-3 meses, {previo.get('consecutivo')})")
                     if ped_dup:
                         avisos.append(f"pedimento ya existe con ese agente ({ped_dup.get('consecutivo')})")
-                    st.error("⚠️ DUPLICADO: " + "; ".join(avisos) +
-                             ". No puedes dar de alta. Requiere autorización del administrador.")
-                else:
-                    # crear (admin puede forzar)
-                    anio = datetime.now().year
-                    folio = datos.ultimo_folio(aduana_key, anio) + 1
-                    consec = reglas.generar_consecutivo(aduana_key, anio, folio - 1)
-                    if hay_dup and es_admin:
-                        datos.crear_contenedor_forzado(aduana_key, limpio, cliente_norm,
-                            consec, anio, folio, actor, "alta duplicada autorizada por admin")
-                        st.warning(f"Alta DUPLICADA autorizada: {consec} · {limpio}")
+
+                    if hay_dup and not es_admin:
+                        st.error("⚠️ DUPLICADO: " + "; ".join(avisos) +
+                                 ". No puedes dar de alta. Requiere autorización del administrador.")
+                    elif hay_dup and es_admin:
+                        # Guardar datos pendientes y pedir confirmación
+                        st.session_state[f"dup_pend_{aduana_key}"] = {
+                            "limpio": limpio, "cliente": cliente_norm, "aa": aa_final,
+                            "ref": ref_val, "ped": ped_val, "avisos": avisos}
+                        st.rerun()
                     else:
-                        datos.crear_contenedor(aduana_key, limpio, cliente_norm,
-                                               consec, anio, folio, actor)
-                        if clasif == "REINGRESO":
-                            st.success(f"Reingreso: {consec} · {limpio} (+3 meses).")
-                        else:
-                            st.success(f"Alta: {consec} · {limpio}")
-                    # completar AA, ref, ped si vienen
-                    nuevo = datos.buscar_contenedor_existente(limpio)
-                    if nuevo:
-                        if aa_final: datos.actualizar_campo_contenedor(nuevo["id"],"aa",aa_final,actor)
-                        if ref_val: datos.actualizar_campo_contenedor(nuevo["id"],"referencia",ref_val,actor)
-                        if ped_val: datos.actualizar_campo_contenedor(nuevo["id"],"pedimento",ped_val,actor)
-                    st.session_state[flag] = True
-                    st.rerun()
+                        _crear_alta(aduana_key, limpio, cliente_norm, aa_final, ref_val,
+                                    ped_val, actor, clasif, forzado=False)
+                        st.session_state[flag] = True
+                        st.rerun()
+
+        # Confirmación de duplicado (solo admin)
+        pend = st.session_state.get(f"dup_pend_{aduana_key}")
+        if pend:
+            st.warning("⚠️ DUPLICADO detectado: " + "; ".join(pend["avisos"]))
+            cc = st.columns(2)
+            if cc[0].button("Autorizar alta duplicada", type="primary", key=f"dup_si_{aduana_key}"):
+                _crear_alta(aduana_key, pend["limpio"], pend["cliente"], pend["aa"],
+                            pend["ref"], pend["ped"], actor, "NUEVO", forzado=True)
+                del st.session_state[f"dup_pend_{aduana_key}"]
+                st.session_state[flag] = True
+                st.rerun()
+            if cc[1].button("Cancelar", key=f"dup_no_{aduana_key}"):
+                del st.session_state[f"dup_pend_{aduana_key}"]
+                st.rerun()
 
     # Lista colapsada y paginada
     total = datos.contar_contenedores(aduana_key)

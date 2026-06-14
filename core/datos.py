@@ -211,7 +211,7 @@ def crear_contenedor(aduana, contenedor_limpio, cliente, consecutivo, anio, foli
     return consecutivo
 
 def listar_contenedores(aduana, limite=None, offset=0):
-    sql = "SELECT * FROM contenedores WHERE aduana=? AND activo=1 ORDER BY id DESC"
+    sql = "SELECT * FROM contenedores WHERE aduana=? AND activo=1 ORDER BY id ASC"
     params = [aduana]
     if limite is not None:
         sql += " LIMIT ? OFFSET ?"

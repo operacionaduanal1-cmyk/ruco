@@ -119,8 +119,10 @@ def validar_pedimento(valor):
     v = limpiar_pedimento(valor)
     if not v:
         return False, "Vacío"
-    if not v.isdigit():
-        return False, "Solo números."
+    # Permite digitos y espacios internos (pedimentos vienen como '55 2655 8882500')
+    sin_esp = v.replace(" ", "")
+    if not sin_esp.isdigit():
+        return False, "Solo números (y espacios)."
     return True, v
 
 # --- Fecha dd/mm/yyyy ---

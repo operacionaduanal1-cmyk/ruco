@@ -461,18 +461,3 @@ def _ordenar_por_eta(filas):
             return (1, datetime.max)
     return sorted(filas, key=clave)
 
-
-def borrar_todos_contenedores():
-    """Borra TODOS los contenedores (para reiniciar pruebas). Irreversible."""
-    _exec("DELETE FROM contenedores")
-    return True
-
-
-
-def _limpieza_unica_contenedores():
-    """Borra contenedores UNA sola vez. Usa una marca en la tabla catalogos para no repetirse."""
-    marca, _ = _exec("SELECT id FROM catalogos WHERE tipo='__LIMPIEZA__' AND valor='HECHA' LIMIT 1")
-    if marca:
-        return  # ya se hizo, nunca más
-    _exec("DELETE FROM contenedores")
-    _exec("INSERT INTO catalogos (tipo, valor, activo) VALUES ('__LIMPIEZA__','HECHA',0)")

@@ -398,20 +398,32 @@ def panel_aduana(aduana_key, aduana_nombre):
                         datos.restaurar_contenedor(ct["id"], actor)
                         st.rerun()
                 else:
-                    cols = st.columns([2,2,1.4,0.6,0.6]) if es_admin else st.columns([2,2,1.4])
-                    cols[0].markdown(f"**{ct['consecutivo']}**  \n`{ct['contenedor']}`")
+                    cols = st.columns([2.4, 2, 1.4, 0.6]) if es_admin else st.columns([2.4, 2, 1.4])
+                    color = reglas.color_estatus(ct.get("estatus"))
+                    # Contenedor grande + ref/pedimento debajo. El contenedor es el botón de edición.
+                    cols[0].markdown(
+                        f"<div style='font-size:0.75rem;color:#9aa0a6'>{ct['consecutivo']}</div>"
+                        f"<div style='font-size:1.15rem;font-weight:800;letter-spacing:0.5px'>{ct['contenedor']}</div>"
+                        f"<div style='font-size:0.72rem;color:#9aa0a6'>REF: {ct.get('referencia') or '—'} · "
+                        f"PED: {ct.get('pedimento') or '—'}</div>",
+                        unsafe_allow_html=True)
+                    if cols[0].button("Abrir / editar", key=f"open_{ct['id']}"):
+                        st.session_state[f"editando_{ct['id']}"] = not st.session_state.get(f"editando_{ct['id']}", False)
                     cols[1].markdown(f"CLIENTE: {ct.get('cliente') or '—'}  \nETA: {ct.get('eta') or '—'}")
+                    # Estatus pintado
                     est_act = ct.get("estatus") or "CAPTURA"
-                    n_est = cols[2].selectbox("ESTATUS", reglas.ESTATUS,
+                    cols[2].markdown(
+                        f"<div style='background:{color};color:#fff;padding:4px 10px;border-radius:6px;"
+                        f"text-align:center;font-weight:700;font-size:0.8rem'>{est_act}</div>",
+                        unsafe_allow_html=True)
+                    n_est = cols[2].selectbox("Cambiar", reglas.ESTATUS,
                         index=reglas.ESTATUS.index(est_act) if est_act in reglas.ESTATUS else 0,
-                        key=f"est_{ct['id']}")
+                        key=f"est_{ct['id']}", label_visibility="collapsed")
                     if n_est != est_act:
                         datos.actualizar_campo_contenedor(ct["id"], "estatus", n_est, actor)
                         st.rerun()
                     if es_admin:
-                        if cols[3].button("✏️", key=f"edit_{ct['id']}", help="Editar todo"):
-                            st.session_state[f"editando_{ct['id']}"] = True
-                        if cols[4].button("🗑️", key=f"del_{ct['id']}", help="Eliminar"):
+                        if cols[3].button("🗑️", key=f"del_{ct['id']}", help="Eliminar"):
                             st.session_state[f"borrando_{ct['id']}"] = True
                     # Pedir motivo al eliminar
                     if es_admin and st.session_state.get(f"borrando_{ct['id']}"):
@@ -431,7 +443,8 @@ def panel_aduana(aduana_key, aduana_nombre):
                         if mc[1].button("Cancelar", key=f"delno_{ct['id']}"):
                             st.session_state[f"borrando_{ct['id']}"] = False
                             st.rerun()
-                    if es_admin and st.session_state.get(f"editando_{ct['id']}"):
+                    # Ficha de edición (admin edita todo; ejecutivos abren a ver/editar permitido)
+                    if st.session_state.get(f"editando_{ct['id']}"):
                         _ficha_edicion(ct, actor, es_admin)
 
 
@@ -439,40 +452,67 @@ def panel_aduana(aduana_key, aduana_nombre):
 def panel_busqueda():
     st.markdown("<div style='margin:0.5rem 0 1rem'></div>", unsafe_allow_html=True)
     c1, c2 = st.columns([3, 1])
-    termino = c1.text_input("🔎 BUSCAR", key="busqueda_global",
-                            placeholder="Número de contenedor o nombre de cliente",
-                            label_visibility="collapsed")
-    tipo = c2.selectbox("Tipo", ["Contenedor", "Cliente"], key="tipo_busqueda",
+    tipo = c2.selectbox("Tipo", ["Contenedor", "Cliente", "Estatus"], key="tipo_busqueda",
                         label_visibility="collapsed")
-    if not termino.strip():
-        return
 
+    resultados = None
     if tipo == "Contenedor":
+        termino = c1.text_input("🔎 BUSCAR", key="busqueda_global",
+                                placeholder="Número de contenedor",
+                                label_visibility="collapsed")
+        if not termino.strip():
+            return
         limpio = reglas.limpiar_contenedor(termino)
         resultados = datos.buscar_por_contenedor(limpio)
-    else:
-        # Filtros adicionales para búsqueda por cliente
-        fc1, fc2 = st.columns(2)
-        f_aduana = fc1.selectbox("Filtrar aduana", ["TODAS", "PANTACO", "MANZANILLO", "LAZARO"],
-                                 key="f_aduana")
-        f_estatus = fc2.selectbox("Filtrar estatus", ["TODOS"] + reglas.ESTATUS, key="f_estatus")
-        resultados = datos.buscar_por_cliente(
-            reglas.normalizar_texto(termino),
-            aduana=None if f_aduana == "TODAS" else f_aduana,
-            estatus=None if f_estatus == "TODOS" else f_estatus)
 
+    elif tipo == "Cliente":
+        clientes = datos.listar_catalogo("CLIENTE")
+        cli_sel = c1.selectbox("Cliente", ["(seleccionar)"] + clientes,
+                               key="busc_cli", label_visibility="collapsed")
+        if cli_sel == "(seleccionar)":
+            return
+        fc1, fc2 = st.columns(2)
+        f_aduana = fc1.selectbox("Filtrar aduana", ["TODAS", "PANTACO", "MANZANILLO", "LAZARO"], key="f_aduana")
+        f_estatus = fc2.selectbox("Filtrar estatus", ["TODOS"] + datos.estatus_existentes(), key="f_estatus")
+        resultados = datos.buscar_por_cliente(
+            cli_sel,
+            aduana=None if f_aduana == "TODAS" else f_aduana,
+            estatus=None if f_estatus in ("TODOS", "(vacío)") else f_estatus)
+
+    else:  # Estatus
+        est_disp = datos.estatus_existentes()
+        est_sel = c1.selectbox("Estatus", ["(seleccionar)"] + est_disp,
+                               key="busc_est", label_visibility="collapsed")
+        if est_sel == "(seleccionar)":
+            return
+        fa = st.selectbox("Filtrar aduana", ["TODAS", "PANTACO", "MANZANILLO", "LAZARO"], key="f_aduana_est")
+        estatus_q = "" if est_sel == "(vacío)" else est_sel
+        resultados = datos.buscar_por_estatus(estatus_q,
+                                              aduana=None if fa == "TODAS" else fa)
+
+    if resultados is None:
+        return
     if not resultados:
         st.info("Sin resultados.")
         return
     st.caption(f"{len(resultados)} resultado(s)")
     nombres_aduana = {"PANTACO": "Pantaco", "MANZANILLO": "Manzanillo", "LAZARO": "Lázaro"}
     for r in resultados:
+        color = reglas.color_estatus(r.get("estatus"))
         with st.container(border=True):
-            a, b, c = st.columns([1.5, 2, 1.5])
-            a.markdown(f"**{r['consecutivo']}**  \n`{r['contenedor']}`")
+            a, b, c = st.columns([2, 2, 1.5])
+            a.markdown(
+                f"<div style='font-size:0.72rem;color:#9aa0a6'>{r['consecutivo']}</div>"
+                f"<div style='font-size:1.1rem;font-weight:800'>{r['contenedor']}</div>"
+                f"<div style='font-size:0.7rem;color:#9aa0a6'>REF: {r.get('referencia') or '—'} · "
+                f"PED: {r.get('pedimento') or '—'}</div>", unsafe_allow_html=True)
             b.markdown(f"CLIENTE: {r.get('cliente') or '—'}  \n"
                        f"ADUANA: {nombres_aduana.get(r['aduana'], r['aduana'])}")
-            c.markdown(f"ESTATUS: **{r.get('estatus') or '—'}**  \nETA: {r.get('eta') or '—'}")
+            c.markdown(
+                f"<div style='background:{color};color:#fff;padding:3px 8px;border-radius:5px;"
+                f"text-align:center;font-weight:700;font-size:0.78rem'>{r.get('estatus') or '—'}</div>"
+                f"<div style='font-size:0.72rem;color:#9aa0a6;margin-top:3px'>ETA: {r.get('eta') or '—'}</div>",
+                unsafe_allow_html=True)
 
 
 # ---------- PANEL BASE (catálogos, solo admin) ----------

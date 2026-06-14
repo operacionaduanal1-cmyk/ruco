@@ -138,3 +138,27 @@ def validar_fecha(valor):
     if not (1 <= int(d) <= 31 and 1 <= int(m) <= 12):
         return False, "Fecha inválida"
     return True, v
+
+
+# --- Colores de estatus (para reconocer rápido) ---
+COLOR_ESTATUS = {
+    "CAPTURA": "#5B6B7E",            # gris (recién entró)
+    "PENDIENTE INFORMACION": "#8a6d3b",
+    "ANALISIS": "#3b6e8a",          # azul
+    "REVISION": "#3b6e8a",
+    "GLOSA": "#6f5499",             # morado
+    "PROGRAMADO": "#3b6e8a",
+    "PAGADO": "#d4a017",            # amarillo/dorado
+    "OK OPERACIONES": "#2e8b57",    # verde medio
+    "MODULADO": "#2e8b57",
+    "LIBERADO": "#2e8b57",
+    "DESPACHADO": "#1e7d34",        # verde fuerte (terminado bien)
+    "RETENIDO": "#b85c00",          # naranja
+    "PAMA": "#c0392b",              # rojo
+    "ABANDONO": "#c0392b",
+    "DESISTIDO": "#c0392b",
+    "CANCELADO": "#8b0000",         # rojo oscuro
+}
+
+def color_estatus(estatus):
+    return COLOR_ESTATUS.get((estatus or "").strip().upper(), "#5B6B7E")

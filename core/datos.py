@@ -397,3 +397,31 @@ def cargar_pantaco_2026(registros, actor):
              datetime.now().isoformat(), actor))
         n += 1
     return n
+
+
+def estatus_existentes(aduana=None):
+    """Lista de estatus que realmente existen en los datos (para filtrar)."""
+    if aduana:
+        filas, _ = _exec("SELECT DISTINCT estatus FROM contenedores WHERE aduana=? AND activo=1 ORDER BY estatus", (aduana,))
+    else:
+        filas, _ = _exec("SELECT DISTINCT estatus FROM contenedores WHERE activo=1 ORDER BY estatus")
+    res = []
+    for f in filas:
+        e = f.get("estatus")
+        res.append(e if e else "(vacío)")
+    return res
+
+
+def buscar_por_estatus(estatus, aduana=None):
+    """Trae contenedores por estatus (incluye vacíos si estatus='')."""
+    if estatus == "":
+        sql = "SELECT * FROM contenedores WHERE activo=1 AND (estatus IS NULL OR estatus='')"
+        params = []
+    else:
+        sql = "SELECT * FROM contenedores WHERE activo=1 AND estatus=?"
+        params = [estatus]
+    if aduana:
+        sql += " AND aduana=?"; params.append(aduana)
+    sql += " ORDER BY aduana, id ASC"
+    filas, _ = _exec(sql, tuple(params))
+    return filas

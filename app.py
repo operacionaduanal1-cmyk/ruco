@@ -279,14 +279,11 @@ def panel_aduana(aduana_key, aduana_nombre):
     es_admin = st.session_state.usuario["rol"] == "Administrador"
     st.subheader(f"CONTENEDORES · {aduana_nombre.upper()}")
 
-    # Limpiar campos tras un alta exitosa (cada registro va en blanco)
-    flag = f"limpiar_alta_{aduana_key}"
-    if st.session_state.get(flag):
-        for k in [f"alta_cont_{aduana_key}", f"alta_ref_{aduana_key}", f"alta_ped_{aduana_key}"]:
-            if k in st.session_state: st.session_state[k] = ""
-        for k in [f"alta_clisel_{aduana_key}", f"alta_aa_{aduana_key}"]:
-            if k in st.session_state: del st.session_state[k]
-        st.session_state[flag] = False
+    # Versión del formulario: al subir, todos los widgets nacen vacíos (limpieza total)
+    vkey = f"altaver_{aduana_key}"
+    if vkey not in st.session_state:
+        st.session_state[vkey] = 0
+    v = st.session_state[vkey]
 
     with st.expander("➕ DAR DE ALTA UN CONTENEDOR", expanded=True):
         clientes_cat = datos.listar_catalogo("CLIENTE")
@@ -295,16 +292,16 @@ def panel_aduana(aduana_key, aduana_nombre):
         # Fila 1: contenedor, cliente (solo selección, nuevos se agregan en Base)
         r1 = st.columns(2)
         cont_raw = r1[0].text_input("NÚMERO DE CONTENEDOR", max_chars=11,
-                                    key=f"alta_cont_{aduana_key}",
+                                    key=f"alta_cont_{aduana_key}_{v}",
                                     help="11 caracteres: 4 letras + 7 dígitos")
         cliente_sel = r1[1].selectbox("CLIENTE", ["(seleccionar)"] + clientes_cat,
-                                      key=f"alta_clisel_{aduana_key}")
+                                      key=f"alta_clisel_{aduana_key}_{v}")
 
         # Fila 2: agente aduanal, referencia, pedimento
         r2 = st.columns(3)
-        aa_sel = r2[0].selectbox("AGENTE ADUANAL", ["(opcional)"] + aas_cat, key=f"alta_aa_{aduana_key}")
-        ref_raw = r2[1].text_input("REFERENCIA", key=f"alta_ref_{aduana_key}")
-        ped_raw = r2[2].text_input("PEDIMENTO", key=f"alta_ped_{aduana_key}")
+        aa_sel = r2[0].selectbox("AGENTE ADUANAL", ["(opcional)"] + aas_cat, key=f"alta_aa_{aduana_key}_{v}")
+        ref_raw = r2[1].text_input("REFERENCIA", key=f"alta_ref_{aduana_key}_{v}")
+        ped_raw = r2[2].text_input("PEDIMENTO", key=f"alta_ped_{aduana_key}_{v}")
 
         if st.button("DAR DE ALTA", type="primary", key=f"alta_btn_{aduana_key}"):
             limpio = reglas.limpiar_contenedor(cont_raw)
@@ -355,7 +352,7 @@ def panel_aduana(aduana_key, aduana_nombre):
                     else:
                         _crear_alta(aduana_key, limpio, cliente_norm, aa_final, ref_val,
                                     ped_val, actor, clasif, forzado=False)
-                        st.session_state[flag] = True
+                        st.session_state[vkey] += 1
                         st.rerun()
 
         # Confirmación de duplicado (solo admin)
@@ -367,7 +364,7 @@ def panel_aduana(aduana_key, aduana_nombre):
                 _crear_alta(aduana_key, pend["limpio"], pend["cliente"], pend["aa"],
                             pend["ref"], pend["ped"], actor, "NUEVO", forzado=True)
                 del st.session_state[f"dup_pend_{aduana_key}"]
-                st.session_state[flag] = True
+                st.session_state[vkey] += 1
                 st.rerun()
             if cc[1].button("Cancelar", key=f"dup_no_{aduana_key}"):
                 del st.session_state[f"dup_pend_{aduana_key}"]
@@ -500,7 +497,7 @@ else:
     panel_busqueda()
 
     if u["rol"] == "Administrador":
-        t_pan, t1, t_base, t2 = st.tabs(["📦 Pantaco", "👥 Usuarios", "🗂️ Base", "🕓 Historial"])
+        t_pan, t1, t_base, t2 = st.tabs(["🚛 Pantaco", "👥 Usuarios", "🗂️ Base", "🕓 Historial"])
         with t_pan: panel_aduana("PANTACO", "Pantaco")
         with t1: panel_usuarios()
         with t_base: panel_base()

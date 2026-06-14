@@ -242,12 +242,20 @@ def panel_usuarios():
                     ed_cliente = u.get("cliente_ligado") or ""
                     if ed_rol == "Consulta cliente":
                         ed_cliente = st.text_input("Cliente ligado", value=ed_cliente, key=f"edu_cli_{u['id']}")
+                    # Mostrar confirmación persistente si la hubo
+                    if st.session_state.get(f"msg_usuario_{u['id']}"):
+                        st.success(st.session_state[f"msg_usuario_{u['id']}"])
+                        del st.session_state[f"msg_usuario_{u['id']}"]
+
                     if st.button("Guardar datos del usuario", type="primary", key=f"edu_save_{u['id']}"):
                         ok, msg = datos.editar_usuario(
                             u["id"], ed_nombre, ed_usuario, ed_rol, ed_cliente, actor,
                             password=ed_pass if ed_pass else None)
                         if ok:
-                            st.success(msg)
+                            cambios = "✅ Cambios guardados"
+                            if ed_pass:
+                                cambios += " (contraseña actualizada)"
+                            st.session_state[f"msg_usuario_{u['id']}"] = cambios + "."
                             st.rerun()
                         else:
                             st.error(msg)
@@ -255,6 +263,9 @@ def panel_usuarios():
                     st.divider()
                     st.markdown(f"**Permisos de edición de {u['nombre']}**")
                     st.caption("Marca los campos que este usuario PUEDE editar. Los demás solo los verá.")
+                    if st.session_state.get(f"msg_perm_{u['id']}"):
+                        st.success(st.session_state[f"msg_perm_{u['id']}"])
+                        del st.session_state[f"msg_perm_{u['id']}"]
                     permisos_actuales = datos.obtener_permisos(u["id"])
                     seleccion = []
                     # casillas en 3 columnas
@@ -270,8 +281,7 @@ def panel_usuarios():
                         if "gestionar_usuarios" in permisos_actuales:
                             seleccion.append("gestionar_usuarios")
                         datos.guardar_permisos(u["id"], seleccion, actor)
-                        st.success("Permisos guardados.")
-                        st.session_state[f"abriendo_perfil_{u['id']}"] = False
+                        st.session_state[f"msg_perm_{u['id']}"] = "✅ Permisos guardados."
                         st.rerun()
 
 # ---------- PANEL ADMIN: HISTORIAL ----------

@@ -327,13 +327,25 @@ def _ficha_edicion(ct, actor, es_admin):
             f"<div style='padding:6px 0;color:#cfcfcf'>{valor or '—'}</div>",
             unsafe_allow_html=True)
 
-    cli = ["(sin cambio)"] + datos.listar_catalogo("CLIENTE")
-    imp = ["(sin cambio)"] + datos.listar_catalogo("IMPORTADOR")
-    aas = ["(sin cambio)"] + datos.listar_catalogo("AA")
-    regs = ["(sin cambio)"] + datos.listar_catalogo("REGIMEN")
-    dets = ["(sin cambio)"] + datos.listar_catalogo("DETALLE")
-    t3s = ["(sin cambio)"] + datos.listar_catalogo("T3")
-    ests = ["(sin cambio)"] + reglas.ESTATUS
+    cli = datos.listar_catalogo("CLIENTE")
+    imp = datos.listar_catalogo("IMPORTADOR")
+    aas = datos.listar_catalogo("AA")
+    regs = datos.listar_catalogo("REGIMEN")
+    dets = datos.listar_catalogo("DETALLE")
+    t3s = datos.listar_catalogo("T3")
+    ests = reglas.ESTATUS
+
+    def opciones_con_actual(catalogo, valor_actual):
+        """Lista que arranca con el valor actual del contenedor ya seleccionado."""
+        va = (valor_actual or "").strip()
+        if va and va in catalogo:
+            # poner el actual primero
+            return [va] + [x for x in catalogo if x != va]
+        elif va:
+            # valor actual no está en catálogo (raro), lo agregamos arriba
+            return [va] + catalogo
+        else:
+            return ["(vacío)"] + catalogo
 
     n_cli = n_imp = n_aa = n_ref = n_ped = n_eta = "(sin cambio)"
     n_reg = n_det = n_fp = n_t3 = n_obs = n_est = "(sin cambio)"
@@ -341,13 +353,13 @@ def _ficha_edicion(ct, actor, es_admin):
     # Fila 1: cliente, importador, agente
     r1 = st.columns(3)
     with r1[0]:
-        if puede("cliente"): n_cli = st.selectbox("CLIENTE", cli, key=f"ed_cli_{ct['id']}")
+        if puede("cliente"): n_cli = st.selectbox("CLIENTE", opciones_con_actual(cli, ct.get("cliente")), key=f"ed_cli_{ct['id']}")
         else: mostrar_solo_lectura("CLIENTE", ct.get("cliente"))
     with r1[1]:
-        if puede("importador"): n_imp = st.selectbox("IMPORTADOR", imp, key=f"ed_imp_{ct['id']}")
+        if puede("importador"): n_imp = st.selectbox("IMPORTADOR", opciones_con_actual(imp, ct.get("importador")), key=f"ed_imp_{ct['id']}")
         else: mostrar_solo_lectura("IMPORTADOR", ct.get("importador"))
     with r1[2]:
-        if puede("aa"): n_aa = st.selectbox("AGENTE ADUANAL", aas, key=f"ed_aa_{ct['id']}")
+        if puede("aa"): n_aa = st.selectbox("AGENTE ADUANAL", opciones_con_actual(aas, ct.get("aa")), key=f"ed_aa_{ct['id']}")
         else: mostrar_solo_lectura("AGENTE ADUANAL", ct.get("aa"))
     # Fila 2: referencia, pedimento, ETA
     r2 = st.columns(3)
@@ -363,10 +375,10 @@ def _ficha_edicion(ct, actor, es_admin):
     # Fila 3: regimen, detalle, fecha pago
     r3 = st.columns(3)
     with r3[0]:
-        if puede("regimen"): n_reg = st.selectbox("REGIMEN", regs, key=f"ed_reg_{ct['id']}")
+        if puede("regimen"): n_reg = st.selectbox("REGIMEN", opciones_con_actual(regs, ct.get("regimen")), key=f"ed_reg_{ct['id']}")
         else: mostrar_solo_lectura("REGIMEN", ct.get("regimen"))
     with r3[1]:
-        if puede("detalle"): n_det = st.selectbox("DETALLE", dets, key=f"ed_det_{ct['id']}")
+        if puede("detalle"): n_det = st.selectbox("DETALLE", opciones_con_actual(dets, ct.get("detalle")), key=f"ed_det_{ct['id']}")
         else: mostrar_solo_lectura("DETALLE", ct.get("detalle"))
     with r3[2]:
         if puede("fecha_pago"): n_fp = st.text_input("FECHA DE PAGO", value=ct.get("fecha_pago") or "", placeholder="dd/mm/yyyy", max_chars=10, key=f"ed_fp_{ct['id']}")
@@ -374,10 +386,10 @@ def _ficha_edicion(ct, actor, es_admin):
     # Fila 4: estatus, T3
     r4 = st.columns(3)
     with r4[0]:
-        if puede("estatus"): n_est = st.selectbox("ESTATUS", ests, key=f"ed_est_{ct['id']}")
+        if puede("estatus"): n_est = st.selectbox("ESTATUS", opciones_con_actual(ests, ct.get("estatus")), key=f"ed_est_{ct['id']}")
         else: mostrar_solo_lectura("ESTATUS", ct.get("estatus") or "SIN ESTATUS")
     with r4[1]:
-        if puede("modulo_t3"): n_t3 = st.selectbox("MODULO T3", t3s, key=f"ed_t3_{ct['id']}")
+        if puede("modulo_t3"): n_t3 = st.selectbox("MODULO T3", opciones_con_actual(t3s, ct.get("modulo_t3")), key=f"ed_t3_{ct['id']}")
         else: mostrar_solo_lectura("MODULO T3", ct.get("modulo_t3"))
     # Observaciones
     if puede("observaciones"):
@@ -390,8 +402,10 @@ def _ficha_edicion(ct, actor, es_admin):
         st.info("Solo puedes consultar este contenedor. No tienes campos asignados para editar.")
 
     if (permitidos or es_admin) and st.button("Guardar cambios", type="primary", key=f"ed_save_{ct['id']}"):
-        ok_eta, msg_eta = reglas.validar_fecha(n_eta if n_eta != "(sin cambio)" else "")
-        ok_fp, msg_fp = reglas.validar_fecha(n_fp if n_fp != "(sin cambio)" else "")
+        eta_val = n_eta if (n_eta and n_eta != "(sin cambio)") else ""
+        fp_val = n_fp if (n_fp and n_fp != "(sin cambio)") else ""
+        ok_eta, msg_eta = reglas.validar_fecha(eta_val)
+        ok_fp, msg_fp = reglas.validar_fecha(fp_val)
         if puede("eta") and not ok_eta:
             st.error(f"ETA: {msg_eta}"); return
         if puede("fecha_pago") and not ok_fp:
@@ -406,15 +420,17 @@ def _ficha_edicion(ct, actor, es_admin):
             datos.actualizar_campo_contenedor(ct["id"], "pedimento", vp, actor)
         for campo, val in [("cliente",n_cli),("importador",n_imp),("aa",n_aa),
                            ("regimen",n_reg),("detalle",n_det),("modulo_t3",n_t3),("estatus",n_est)]:
-            if puede(campo) and val and val != "(sin cambio)":
-                datos.actualizar_campo_contenedor(ct["id"], campo, reglas.normalizar_texto(val), actor)
-        if puede("eta") and n_eta.strip() and n_eta != "(sin cambio)":
+            if puede(campo) and val and val not in ("(sin cambio)", "(vacío)"):
+                nuevo_val = reglas.normalizar_texto(val)
+                if nuevo_val != (ct.get(campo) or "").strip():
+                    datos.actualizar_campo_contenedor(ct["id"], campo, nuevo_val, actor)
+        if puede("eta") and n_eta != "(sin cambio)" and n_eta.strip() != (ct.get("eta") or "").strip():
             datos.actualizar_campo_contenedor(ct["id"], "eta", n_eta.strip(), actor)
-        if puede("fecha_pago") and n_fp.strip() and n_fp != "(sin cambio)":
+        if puede("fecha_pago") and n_fp != "(sin cambio)" and n_fp.strip() != (ct.get("fecha_pago") or "").strip():
             datos.actualizar_campo_contenedor(ct["id"], "fecha_pago", n_fp.strip(), actor)
-        if puede("observaciones") and n_obs.strip() and n_obs != "(sin cambio)":
+        if puede("observaciones") and n_obs != "(sin cambio)" and reglas.normalizar_texto(n_obs) != (ct.get("observaciones") or "").strip():
             datos.actualizar_campo_contenedor(ct["id"], "observaciones", reglas.normalizar_texto(n_obs), actor)
-        st.success("Guardado.")
+        st.session_state[f"msg_guardado_{ct['id']}"] = "✅ Cambios guardados."
         st.session_state[f"editando_{ct['id']}"] = False
         st.rerun()
     if st.button("Cerrar", key=f"ed_close_{ct['id']}"):
@@ -607,6 +623,10 @@ def panel_aduana(aduana_key, aduana_nombre):
                         if mc[1].button("Cancelar", key=f"delno_{ct['id']}"):
                             st.session_state[f"borrando_{ct['id']}"] = False
                             st.rerun()
+                    # Confirmación de guardado (persiste tras cerrar la ficha)
+                    if st.session_state.get(f"msg_guardado_{ct['id']}"):
+                        st.success(st.session_state[f"msg_guardado_{ct['id']}"])
+                        del st.session_state[f"msg_guardado_{ct['id']}"]
                     # Ficha de edición (se abre al clic en el contenedor)
                     if st.session_state.get(f"editando_{ct['id']}"):
                         _ficha_edicion(ct, actor, es_admin)

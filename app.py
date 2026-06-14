@@ -566,12 +566,20 @@ def panel_base():
                 st.rerun()
             else:
                 st.error("No se encontró el archivo de carga.")
-        if st.button("Corregir estatus vacíos", key="corrige_vacios"):
-            if _o.path.exists(ruta):
-                with open(ruta, encoding="utf-8") as _f:
-                    regs = _j.load(_f)
-                n = datos.corregir_estatus_vacios_2026(regs)
-                st.success(f"Corregidos {n} registros a estatus vacío.")
+        st.divider()
+        st.caption("⚠️ Borra TODOS los contenedores para empezar pruebas de cero.")
+        if st.button("Borrar todos los contenedores", key="borrar_todo"):
+            st.session_state["confirmar_borrado_total"] = True
+        if st.session_state.get("confirmar_borrado_total"):
+            st.warning("¿Seguro? Esto borra TODOS los contenedores. No se puede deshacer.")
+            bc = st.columns(2)
+            if bc[0].button("Sí, borrar todo", type="primary", key="borrar_todo_si"):
+                datos.borrar_todos_contenedores()
+                st.session_state["confirmar_borrado_total"] = False
+                st.success("Todos los contenedores borrados.")
+                st.rerun()
+            if bc[1].button("Cancelar", key="borrar_todo_no"):
+                st.session_state["confirmar_borrado_total"] = False
                 st.rerun()
 
     st.caption("Aquí administras las listas que aparecen en los formularios. "

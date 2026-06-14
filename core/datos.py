@@ -462,16 +462,8 @@ def _ordenar_por_eta(filas):
     return sorted(filas, key=clave)
 
 
-def corregir_estatus_vacios_2026(registros):
-    """Corrige los registros 2026 que se cargaron como CAPTURA pero debían ir vacíos."""
-    n = 0
-    for reg in registros:
-        if not reg["estatus"].strip():  # debía ir vacío
-            # buscar ese contenedor con estatus CAPTURA y vaciarlo
-            filas, _ = _exec(
-                "SELECT id FROM contenedores WHERE contenedor=? AND aduana='PANTACO' AND estatus='CAPTURA'",
-                (reg["contenedor"],))
-            for f in filas:
-                _exec("UPDATE contenedores SET estatus='' WHERE id=?", (f["id"],))
-                n += 1
-    return n
+def borrar_todos_contenedores():
+    """Borra TODOS los contenedores (para reiniciar pruebas). Irreversible."""
+    _exec("DELETE FROM contenedores")
+    return True
+

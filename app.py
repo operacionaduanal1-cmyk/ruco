@@ -11,6 +11,29 @@ st.set_page_config(page_title="RUCO", page_icon="📦", layout="wide")
 
 datos.inicializar()
 
+# --- DIAGNOSTICO TEMPORAL (quitar despues) ---
+import os as _os
+if _os.environ.get("RUCO_DIAG") != "off":
+    with st.sidebar:
+        st.caption("Diagnóstico")
+        try:
+            _u = datos.listar_usuarios()
+            st.write(f"Usuarios en base: {len(_u)}")
+            st.write([x.get("usuario") for x in _u])
+            st.write("Turso activo:", datos._es_turso())
+        except Exception as _e:
+            st.error(f"Error base: {_e}")
+        if st.button("Re-sembrar admin"):
+            try:
+                datos._exec("""INSERT INTO usuarios (nombre, usuario, password_hash, rol, activo, creado)
+                    VALUES (?,?,?,?,1,?)""",
+                    ("Administrador RUCO","admin",datos.hash_password("admin123"),
+                     "Administrador", __import__("datetime").datetime.now().isoformat()))
+                st.success("Admin creado. Recarga.")
+            except Exception as _e:
+                st.error(f"No se pudo: {_e}")
+# --- FIN DIAGNOSTICO ---
+
 # ---------- Estilo visual ----------
 st.markdown("""
 <style>

@@ -461,3 +461,11 @@ def _ordenar_por_eta(filas):
             return (1, datetime.max)
     return sorted(filas, key=clave)
 
+
+
+def _limpieza_unica_2():
+    marca, _ = _exec("SELECT id FROM catalogos WHERE tipo='__LIMP2__' AND valor='HECHA' LIMIT 1")
+    if marca:
+        return
+    _exec("DELETE FROM contenedores")
+    _exec("INSERT INTO catalogos (tipo, valor, activo) VALUES ('__LIMP2__','HECHA',0)")

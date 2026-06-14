@@ -90,20 +90,6 @@ div.stButton > button:hover { background:#2a2a2a; border-color:#555; }
 .badge-on { color:#3ddc84; font-weight:700; }
 .badge-off { color:#ff6b6b; font-weight:700; }
 </style>
-<script>
-// Pinta de naranja tenue los botones que solo tienen el emoji de cesto
-function pintarCestos(){
-  const doc = window.parent.document;
-  doc.querySelectorAll('button').forEach(b => {
-    if(b.innerText.trim() === '🗑️'){
-      b.style.background = '#b07a4a';
-      b.style.borderColor = '#c98a55';
-      b.style.color = '#fff';
-    }
-  });
-}
-setInterval(pintarCestos, 500);
-</script>
 """, unsafe_allow_html=True)
 
 # ---------- Estado de sesión ----------
@@ -220,6 +206,7 @@ def panel_historial():
 
 # ---------- PANEL ADUANA: PANTACO ----------
 datos.inicializar_contenedores()
+datos._limpieza_unica_2()
 
 def _campo_fecha(label, valor, key):
     """Campo de fecha con formato dd/mm/yyyy guiado."""
@@ -599,7 +586,11 @@ def panel_base():
     tipo_ver = st.selectbox("Ver catálogo", tipos, key="base_ver")
     valores = datos.listar_catalogo(tipo_ver)
     st.caption(f"{len(valores)} valores en {tipo_ver}")
-    st.write(", ".join(valores) if valores else "(vacío)")
+    if valores:
+        for i, v in enumerate(valores, 1):
+            st.markdown(f"{i}. {v}")
+    else:
+        st.caption("(vacío)")
 
 
 # ---------- RUTEO ----------
@@ -627,3 +618,24 @@ else:
         t_busc, t_pan = st.tabs(["🔎 Buscar", "🚛 Pantaco"])
         with t_busc: panel_busqueda()
         with t_pan: panel_aduana("PANTACO", "Pantaco")
+
+# Pintar el cesto de eliminar en naranja (componente que sí alcanza el documento de la app)
+st.components.v1.html("""
+<script>
+function pintarCestos(){
+  try {
+    const doc = window.parent.document;
+    doc.querySelectorAll('button').forEach(b => {
+      const t = (b.innerText || '').trim();
+      if(t === '🗑️'){
+        b.style.setProperty('background', '#b07a4a', 'important');
+        b.style.setProperty('border-color', '#c98a55', 'important');
+        b.style.setProperty('color', '#fff', 'important');
+      }
+    });
+  } catch(e){}
+}
+setInterval(pintarCestos, 400);
+pintarCestos();
+</script>
+""", height=0)

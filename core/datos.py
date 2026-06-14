@@ -401,7 +401,7 @@ def cargar_pantaco_2026(registros, actor):
             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1)""",
             (consec, "PANTACO", anio, folio, reg["contenedor"], reg["aa"], reg["referencia"],
              reg["pedimento"], reg["fecha_pago"], reg["cliente"], reg["eta"],
-             reg["estatus"] or "CAPTURA", reg["modulo_t3"], reg["importador"],
+             reg["estatus"], reg["modulo_t3"], reg["importador"],
              reg["detalle"], reg["regimen"], reg["observaciones"],
              datetime.now().isoformat(), actor))
         n += 1
@@ -460,3 +460,18 @@ def _ordenar_por_eta(filas):
         except Exception:
             return (1, datetime.max)
     return sorted(filas, key=clave)
+
+
+def corregir_estatus_vacios_2026(registros):
+    """Corrige los registros 2026 que se cargaron como CAPTURA pero debían ir vacíos."""
+    n = 0
+    for reg in registros:
+        if not reg["estatus"].strip():  # debía ir vacío
+            # buscar ese contenedor con estatus CAPTURA y vaciarlo
+            filas, _ = _exec(
+                "SELECT id FROM contenedores WHERE contenedor=? AND aduana='PANTACO' AND estatus='CAPTURA'",
+                (reg["contenedor"],))
+            for f in filas:
+                _exec("UPDATE contenedores SET estatus='' WHERE id=?", (f["id"],))
+                n += 1
+    return n

@@ -553,9 +553,9 @@ def panel_base():
     # --- CARGA TEMPORAL DE PRUEBA (eliminar en una semana) ---
     with st.expander("⏳ CARGA DE PRUEBA: Pantaco 2026 (temporal)", expanded=False):
         st.caption("Carga los 148 registros 2026 de Pantaco para pruebas. Una sola vez.")
+        import json as _j, os as _o
+        ruta = _o.path.join(_o.path.dirname(__file__), "carga_pantaco_2026.json")
         if st.button("Cargar Pantaco 2026", key="carga_test"):
-            import json as _j, os as _o
-            ruta = _o.path.join(_o.path.dirname(__file__), "carga_pantaco_2026.json")
             if _o.path.exists(ruta):
                 with open(ruta, encoding="utf-8") as _f:
                     regs = _j.load(_f)
@@ -564,6 +564,13 @@ def panel_base():
                 st.rerun()
             else:
                 st.error("No se encontró el archivo de carga.")
+        if st.button("Corregir estatus vacíos", key="corrige_vacios"):
+            if _o.path.exists(ruta):
+                with open(ruta, encoding="utf-8") as _f:
+                    regs = _j.load(_f)
+                n = datos.corregir_estatus_vacios_2026(regs)
+                st.success(f"Corregidos {n} registros a estatus vacío.")
+                st.rerun()
 
     st.caption("Aquí administras las listas que aparecen en los formularios. "
                "Igual que la hoja BASE de tu Excel.")

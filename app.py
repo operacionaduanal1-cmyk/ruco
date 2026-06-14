@@ -476,7 +476,8 @@ def panel_busqueda():
     resultados = None
     if tipo == "Contenedor":
         termino = c_campo.text_input("Número de contenedor", key="busqueda_global",
-                                     placeholder="Escribe el número de contenedor")
+                                     max_chars=11,
+                                     placeholder="Escribe el número de contenedor (11 caracteres)")
         if not termino.strip():
             return
         limpio = reglas.limpiar_contenedor(termino)

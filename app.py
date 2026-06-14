@@ -423,8 +423,9 @@ def panel_aduana(aduana_key, aduana_nombre):
                             if not motivo.strip():
                                 st.warning("El motivo es obligatorio.")
                             else:
-                                datos.eliminar_contenedor(ct["id"], actor,
-                                                          reglas.normalizar_texto(motivo))
+                                _sello = datetime.now().strftime("%d/%m/%Y %H:%M")
+                                _motivo_full = reglas.normalizar_texto(motivo) + f"  [{_sello}]"
+                                datos.eliminar_contenedor(ct["id"], actor, _motivo_full)
                                 st.session_state[f"borrando_{ct['id']}"] = False
                                 st.rerun()
                         if mc[1].button("Cancelar", key=f"delno_{ct['id']}"):

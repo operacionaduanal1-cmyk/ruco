@@ -320,6 +320,14 @@ def panel_historial():
             f"<br><span style='color:#5B6B7E; font-size:.75rem'>{x['fecha'][:16].replace('T',' ')}</span></div>",
             unsafe_allow_html=True)
 
+# ---------- PANEL: REPORTES ----------
+def panel_reportes():
+    st.subheader("📊 Reportes")
+    st.info("Aquí se generarán los reportes en Excel con el formato fijo de RUCO. "
+            "Esta sección se construye la próxima semana.")
+    st.caption("Pronto podrás filtrar por aduana, cliente, estatus y fechas, y descargar el reporte en Excel "
+               "respetando las columnas de tu hoja original.")
+
 # ---------- PANEL ADUANA: PANTACO ----------
 datos.inicializar_contenedores()
 
@@ -419,7 +427,7 @@ def _ficha_edicion(ct, actor, es_admin):
         puede_editar_t3 = es_admin or (puede("modulo_t3") and not ya_tiene_t3)
         if puede_editar_t3:
             idx_t3 = T3_OPCIONES.index(T3_INV[actual_t3]) if ya_tiene_t3 else 0
-            sel_t3 = st.radio("MODULO T3", T3_OPCIONES, index=idx_t3, horizontal=True, key=f"ed_t3_{ct['id']}")
+            sel_t3 = st.radio("MODULO T3", T3_OPCIONES, index=idx_t3, horizontal=False, key=f"ed_t3_{ct['id']}")
             n_t3 = T3_MAP[sel_t3]
         else:
             # Solo lectura (ya tiene foco y no es admin, o no tiene permiso)
@@ -741,7 +749,7 @@ def panel_busqueda():
     st.caption("Busca por contenedor, cliente o estatus. Muestra resultados de Pantaco, Manzanillo y Lázaro.")
     st.markdown("<div style='margin:0.5rem 0 1rem'></div>", unsafe_allow_html=True)
     c_tipo, c_campo = st.columns([1, 3])
-    tipo = c_tipo.selectbox("Buscar por", ["Contenedor", "Cliente", "Estatus"],
+    tipo = c_tipo.selectbox("Buscar por", ["Contenedor", "Referencia", "Cliente", "Estatus"],
                             key="tipo_busqueda")
 
     resultados = None
@@ -753,6 +761,15 @@ def panel_busqueda():
             return
         limpio = reglas.limpiar_contenedor(termino)
         resultados = datos.buscar_por_contenedor(limpio)
+
+    elif tipo == "Referencia":
+        termino = c_campo.text_input("Referencia", key="busqueda_ref",
+                                     placeholder="Pega o escribe la referencia")
+        # limpiar espacios al inicio y final automáticamente (común al copiar/pegar)
+        ref_limpia = (termino or "").strip()
+        if not ref_limpia:
+            return
+        resultados = datos.buscar_por_referencia(ref_limpia)
 
     elif tipo == "Cliente":
         clientes = datos.listar_catalogo("CLIENTE")
@@ -877,13 +894,14 @@ else:
     u = st.session_state.usuario
 
     if u["rol"] == "Administrador":
-        t_busc, t_pan, t1, t_base, t2 = st.tabs(
-            ["🔎 Buscar", "🚛 Pantaco", "👥 Usuarios", "🗂️ Base", "🕓 Historial"])
+        t_busc, t_pan, t1, t_base, t2, t_rep = st.tabs(
+            ["🔎 Buscar", "🚛 Pantaco", "👥 Usuarios", "🗂️ Base", "🕓 Historial", "📊 Reportes"])
         with t_busc: panel_busqueda()
         with t_pan: panel_aduana("PANTACO", "Pantaco")
         with t1: panel_usuarios()
         with t_base: panel_base()
         with t2: panel_historial()
+        with t_rep: panel_reportes()
     elif u["rol"] == "Consulta":
         # Solo lectura: únicamente la pestaña Buscar, ve todo pero no modifica
         panel_busqueda()
@@ -892,14 +910,16 @@ else:
         usr = datos.obtener_usuario_por_username(u["usuario"])
         gestiona = usr and datos.puede_gestionar_usuarios(usr["id"])
         if gestiona:
-            t_busc, t_pan, t_us = st.tabs(["🔎 Buscar", "🚛 Pantaco", "👥 Usuarios"])
+            t_busc, t_pan, t_us, t_rep = st.tabs(["🔎 Buscar", "🚛 Pantaco", "👥 Usuarios", "📊 Reportes"])
             with t_busc: panel_busqueda()
             with t_pan: panel_aduana("PANTACO", "Pantaco")
             with t_us: panel_usuarios()
+            with t_rep: panel_reportes()
         else:
-            t_busc, t_pan = st.tabs(["🔎 Buscar", "🚛 Pantaco"])
+            t_busc, t_pan, t_rep = st.tabs(["🔎 Buscar", "🚛 Pantaco", "📊 Reportes"])
             with t_busc: panel_busqueda()
             with t_pan: panel_aduana("PANTACO", "Pantaco")
+            with t_rep: panel_reportes()
     else:
         # Los demás roles operativos: buscar y su panel de aduana
         t_busc, t_pan = st.tabs(["🔎 Buscar", "🚛 Pantaco"])

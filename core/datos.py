@@ -284,6 +284,20 @@ def buscar_por_contenedor(contenedor_limpio):
         (contenedor_limpio,))
     return filas
 
+def buscar_por_referencia(referencia_texto):
+    """Busca por referencia. Limpia espacios al inicio y final automáticamente."""
+    ref = (referencia_texto or "").strip()
+    # comparación sin distinguir espacios finales en la base
+    filas, _ = _exec(
+        "SELECT * FROM contenedores WHERE TRIM(referencia)=? AND activo=1 ORDER BY aduana, id DESC",
+        (ref,))
+    if not filas:
+        # intento por coincidencia parcial por si quedó algún espacio interno
+        filas, _ = _exec(
+            "SELECT * FROM contenedores WHERE TRIM(referencia) LIKE ? AND activo=1 ORDER BY aduana, id DESC",
+            (f"%{ref}%",))
+    return filas
+
 def buscar_por_cliente(cliente_texto, aduana=None, estatus=None):
     """Trae todos los contenedores de un cliente, con filtros opcionales."""
     sql = "SELECT * FROM contenedores WHERE activo=1 AND cliente LIKE ?"

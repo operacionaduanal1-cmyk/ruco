@@ -156,7 +156,10 @@ def panel_usuarios():
                 st.warning("Un usuario de consulta cliente necesita el cliente ligado.")
             else:
                 ok, msg = datos.crear_usuario(nombre, usuario, password, rol, cliente, actor)
-                st.success(msg) if ok else st.error(msg)
+                if ok:
+                    st.success(msg)
+                else:
+                    st.error(msg)
                 if ok: st.rerun()
 
     st.markdown("##### Usuarios registrados")
@@ -567,7 +570,7 @@ def panel_base():
         if st.button("Agregar dato", type="primary", key="base_add"):
             if nuevo_val.strip():
                 ok, msg = datos.agregar_valor_catalogo(tipo_sel, nuevo_val, actor)
-                st.success(msg) if ok else st.warning(msg)
+                _ = st.success(msg) if ok else st.warning(msg)
                 if ok: st.rerun()
             else:
                 st.warning("Escribe un valor.")
@@ -578,7 +581,7 @@ def panel_base():
         if st.button("Crear catálogo", type="primary", key="base_newtype"):
             if nuevo_tipo.strip():
                 ok, msg = datos.crear_tipo_catalogo(nuevo_tipo, actor)
-                st.success(msg) if ok else st.warning(msg)
+                _ = st.success(msg) if ok else st.warning(msg)
                 if ok: st.rerun()
 
     # Ver catálogos

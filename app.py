@@ -452,15 +452,14 @@ def panel_busqueda():
     st.subheader("🔎 BUSCAR EN TODAS LAS ADUANAS")
     st.caption("Busca por contenedor, cliente o estatus. Muestra resultados de Pantaco, Manzanillo y Lázaro.")
     st.markdown("<div style='margin:0.5rem 0 1rem'></div>", unsafe_allow_html=True)
-    c1, c2 = st.columns([3, 1])
-    tipo = c2.selectbox("Tipo", ["Contenedor", "Cliente", "Estatus"], key="tipo_busqueda",
-                        label_visibility="collapsed")
+    c_tipo, c_campo = st.columns([1, 3])
+    tipo = c_tipo.selectbox("Buscar por", ["Contenedor", "Cliente", "Estatus"],
+                            key="tipo_busqueda")
 
     resultados = None
     if tipo == "Contenedor":
-        termino = c1.text_input("🔎 BUSCAR", key="busqueda_global",
-                                placeholder="Número de contenedor",
-                                label_visibility="collapsed")
+        termino = c_campo.text_input("Número de contenedor", key="busqueda_global",
+                                     placeholder="Escribe el número de contenedor")
         if not termino.strip():
             return
         limpio = reglas.limpiar_contenedor(termino)
@@ -468,8 +467,8 @@ def panel_busqueda():
 
     elif tipo == "Cliente":
         clientes = datos.listar_catalogo("CLIENTE")
-        cli_sel = c1.selectbox("Cliente", ["(seleccionar)"] + clientes,
-                               key="busc_cli", label_visibility="collapsed")
+        cli_sel = c_campo.selectbox("Cliente", ["(seleccionar)"] + clientes,
+                                    key="busc_cli")
         if cli_sel == "(seleccionar)":
             return
         fc1, fc2 = st.columns(2)
@@ -482,9 +481,9 @@ def panel_busqueda():
 
     else:  # Estatus
         est_disp = datos.estatus_existentes()
-        est_sel = c1.multiselect("Estatus", est_disp,
-                                 key="busc_est", label_visibility="collapsed",
-                                 placeholder="Selecciona uno o varios estatus")
+        est_sel = c_campo.multiselect("Estatus (puedes elegir varios)", est_disp,
+                                      key="busc_est",
+                                      placeholder="Toca cada estatus que quieras ver (se van sumando)")
         if not est_sel:
             return
         fa = st.selectbox("Filtrar aduana", ["TODAS", "PANTACO", "MANZANILLO", "LAZARO"], key="f_aduana_est")

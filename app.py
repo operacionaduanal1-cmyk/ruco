@@ -370,8 +370,8 @@ def panel_aduana(aduana_key, aduana_nombre):
                 del st.session_state[f"dup_pend_{aduana_key}"]
                 st.rerun()
 
-    # Lista colapsada y paginada
-    total = datos.contar_contenedores(aduana_key)
+    # Lista colapsada y paginada (admin ve también eliminados)
+    total = datos.contar_contenedores(aduana_key, incluir_eliminados=es_admin)
     with st.expander(f"📋 VER LISTA DE CONTENEDORES ({total})", expanded=False):
         if total == 0:
             st.info("Aún no hay contenedores capturados.")
@@ -379,27 +379,59 @@ def panel_aduana(aduana_key, aduana_nombre):
         POR_PAGINA = 20
         npag = (total - 1) // POR_PAGINA + 1
         pag = st.number_input("Página", min_value=1, max_value=npag, value=1, key=f"pag_{aduana_key}")
-        conts = datos.listar_contenedores(aduana_key, limite=POR_PAGINA, offset=(pag-1)*POR_PAGINA)
+        conts = datos.listar_contenedores(aduana_key, limite=POR_PAGINA,
+                                          offset=(pag-1)*POR_PAGINA, incluir_eliminados=es_admin)
         for ct in conts:
+            eliminado = not ct.get("activo")
             with st.container(border=True):
-                cols = st.columns([2,2,1.4,0.6,0.6]) if es_admin else st.columns([2,2,1.4])
-                cols[0].markdown(f"**{ct['consecutivo']}**  \n`{ct['contenedor']}`")
-                cols[1].markdown(f"CLIENTE: {ct.get('cliente') or '—'}  \nETA: {ct.get('eta') or '—'}")
-                est_act = ct.get("estatus") or "CAPTURA"
-                n_est = cols[2].selectbox("ESTATUS", reglas.ESTATUS,
-                    index=reglas.ESTATUS.index(est_act) if est_act in reglas.ESTATUS else 0,
-                    key=f"est_{ct['id']}")
-                if n_est != est_act:
-                    datos.actualizar_campo_contenedor(ct["id"], "estatus", n_est, actor)
-                    st.rerun()
-                if es_admin:
-                    if cols[3].button("✏️", key=f"edit_{ct['id']}", help="Editar todo"):
-                        st.session_state[f"editando_{ct['id']}"] = True
-                    if cols[4].button("🗑️", key=f"del_{ct['id']}", help="Eliminar"):
-                        datos.eliminar_contenedor(ct["id"], actor)
+                if eliminado:
+                    # Vista de eliminado (solo admin lo ve), en rojo, con motivo y restaurar
+                    cols = st.columns([2, 2.6, 1])
+                    cols[0].markdown(
+                        f"<span style='color:#ff6b6b'>**{ct['consecutivo']}** (ELIMINADO)  \n"
+                        f"`{ct['contenedor']}`</span>", unsafe_allow_html=True)
+                    cols[1].markdown(
+                        f"<span style='color:#ff9b9b'>CLIENTE: {ct.get('cliente') or '—'}  \n"
+                        f"MOTIVO: {ct.get('motivo_baja') or '(sin motivo)'}</span>",
+                        unsafe_allow_html=True)
+                    if cols[2].button("↩️ Restaurar", key=f"rest_{ct['id']}"):
+                        datos.restaurar_contenedor(ct["id"], actor)
                         st.rerun()
-                if es_admin and st.session_state.get(f"editando_{ct['id']}"):
-                    _ficha_edicion(ct, actor, es_admin)
+                else:
+                    cols = st.columns([2,2,1.4,0.6,0.6]) if es_admin else st.columns([2,2,1.4])
+                    cols[0].markdown(f"**{ct['consecutivo']}**  \n`{ct['contenedor']}`")
+                    cols[1].markdown(f"CLIENTE: {ct.get('cliente') or '—'}  \nETA: {ct.get('eta') or '—'}")
+                    est_act = ct.get("estatus") or "CAPTURA"
+                    n_est = cols[2].selectbox("ESTATUS", reglas.ESTATUS,
+                        index=reglas.ESTATUS.index(est_act) if est_act in reglas.ESTATUS else 0,
+                        key=f"est_{ct['id']}")
+                    if n_est != est_act:
+                        datos.actualizar_campo_contenedor(ct["id"], "estatus", n_est, actor)
+                        st.rerun()
+                    if es_admin:
+                        if cols[3].button("✏️", key=f"edit_{ct['id']}", help="Editar todo"):
+                            st.session_state[f"editando_{ct['id']}"] = True
+                        if cols[4].button("🗑️", key=f"del_{ct['id']}", help="Eliminar"):
+                            st.session_state[f"borrando_{ct['id']}"] = True
+                    # Pedir motivo al eliminar
+                    if es_admin and st.session_state.get(f"borrando_{ct['id']}"):
+                        motivo = st.text_input("Motivo de la eliminación",
+                                               key=f"motivo_{ct['id']}",
+                                               placeholder="¿Por qué se elimina?")
+                        mc = st.columns(2)
+                        if mc[0].button("Confirmar eliminación", type="primary", key=f"delok_{ct['id']}"):
+                            if not motivo.strip():
+                                st.warning("El motivo es obligatorio.")
+                            else:
+                                datos.eliminar_contenedor(ct["id"], actor,
+                                                          reglas.normalizar_texto(motivo))
+                                st.session_state[f"borrando_{ct['id']}"] = False
+                                st.rerun()
+                        if mc[1].button("Cancelar", key=f"delno_{ct['id']}"):
+                            st.session_state[f"borrando_{ct['id']}"] = False
+                            st.rerun()
+                    if es_admin and st.session_state.get(f"editando_{ct['id']}"):
+                        _ficha_edicion(ct, actor, es_admin)
 
 
 # ---------- BÚSQUEDA GLOBAL ----------

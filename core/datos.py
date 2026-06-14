@@ -178,7 +178,13 @@ def inicializar_contenedores():
         autorizacion TEXT,
         creado TEXT,
         creado_por TEXT,
+        motivo_baja TEXT,
         activo INTEGER DEFAULT 1)""")
+    # Asegurar columna motivo_baja si la tabla ya existía sin ella
+    try:
+        _exec("ALTER TABLE contenedores ADD COLUMN motivo_baja TEXT")
+    except Exception:
+        pass
 
 def ultimo_folio(aduana, anio):
     """Devuelve el folio más alto usado en esa aduana ese año (0 si ninguno)."""
@@ -210,8 +216,11 @@ def crear_contenedor(aduana, contenedor_limpio, cliente, consecutivo, anio, foli
           (actor, "alta", "", f"{consecutivo} {contenedor_limpio}", datetime.now().isoformat()))
     return consecutivo
 
-def listar_contenedores(aduana, limite=None, offset=0):
-    sql = "SELECT * FROM contenedores WHERE aduana=? AND activo=1 ORDER BY id ASC"
+def listar_contenedores(aduana, limite=None, offset=0, incluir_eliminados=False):
+    if incluir_eliminados:
+        sql = "SELECT * FROM contenedores WHERE aduana=? ORDER BY id ASC"
+    else:
+        sql = "SELECT * FROM contenedores WHERE aduana=? AND activo=1 ORDER BY id ASC"
     params = [aduana]
     if limite is not None:
         sql += " LIMIT ? OFFSET ?"
@@ -219,8 +228,11 @@ def listar_contenedores(aduana, limite=None, offset=0):
     filas, _ = _exec(sql, tuple(params))
     return filas
 
-def contar_contenedores(aduana):
-    filas, _ = _exec("SELECT COUNT(*) AS n FROM contenedores WHERE aduana=? AND activo=1", (aduana,))
+def contar_contenedores(aduana, incluir_eliminados=False):
+    if incluir_eliminados:
+        filas, _ = _exec("SELECT COUNT(*) AS n FROM contenedores WHERE aduana=?", (aduana,))
+    else:
+        filas, _ = _exec("SELECT COUNT(*) AS n FROM contenedores WHERE aduana=? AND activo=1", (aduana,))
     return filas[0]["n"] if filas else 0
 
 def actualizar_campo_contenedor(cid, campo, valor_nuevo, actor):
@@ -256,13 +268,21 @@ def buscar_por_cliente(cliente_texto, aduana=None, estatus=None):
     filas, _ = _exec(sql, tuple(params))
     return filas
 
-def eliminar_contenedor(cid, actor):
-    """Baja lógica: nunca borra de verdad, marca inactivo. Solo admin."""
+def eliminar_contenedor(cid, actor, motivo=""):
+    """Baja lógica con motivo. Sigue visible solo para admin."""
     from datetime import datetime
-    _exec("UPDATE contenedores SET activo=0 WHERE id=?", (cid,))
+    _exec("UPDATE contenedores SET activo=0, motivo_baja=? WHERE id=?", (motivo, cid))
     _exec("""INSERT INTO historial (tabla, registro_id, usuario, campo, valor_anterior, valor_nuevo, fecha)
              VALUES ('contenedores',?,?,?,?,?,?)""",
-          (cid, actor, "eliminado", "1", "0", datetime.now().isoformat()))
+          (cid, actor, "eliminado", "activo", motivo or "(sin motivo)", datetime.now().isoformat()))
+
+def restaurar_contenedor(cid, actor):
+    """Deshace una eliminación: vuelve a verse para todos."""
+    from datetime import datetime
+    _exec("UPDATE contenedores SET activo=1, motivo_baja=NULL WHERE id=?", (cid,))
+    _exec("""INSERT INTO historial (tabla, registro_id, usuario, campo, valor_anterior, valor_nuevo, fecha)
+             VALUES ('contenedores',?,?,?,?,?,?)""",
+          (cid, actor, "restaurado", "eliminado", "activo", datetime.now().isoformat()))
 
 
 # ============================================================

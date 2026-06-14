@@ -18,7 +18,10 @@ _ruta_cat = _os2.path.join(_os2.path.dirname(__file__), "catalogos_base.json")
 if _os2.path.exists(_ruta_cat):
     with open(_ruta_cat, encoding="utf-8") as _fc:
         datos.cargar_catalogos_iniciales(_json.load(_fc))
-datos.limpiar_duplicados_catalogo()
+try:
+    datos.limpiar_duplicados_catalogo()
+except Exception:
+    pass
 
 
 # ---------- Estilo visual ----------

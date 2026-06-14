@@ -317,17 +317,18 @@ def crear_tipo_catalogo(nuevo_tipo, actor):
 
 
 def limpiar_duplicados_catalogo():
-    """Elimina valores repetidos en catalogos, deja solo unicos."""
-    tipos = tipos_catalogo()
-    for tipo in tipos:
-        filas, _ = _exec("SELECT id, valor FROM catalogos WHERE tipo=? AND activo=1 ORDER BY id", (tipo,))
-        vistos = set()
-        for f in filas:
-            v = f["valor"]
-            if v in vistos:
-                _exec("UPDATE catalogos SET activo=0 WHERE id=?", (f["id"],))
-            else:
-                vistos.add(v)
+    """Elimina valores repetidos en catalogos, deja solo unicos (un solo UPDATE)."""
+    filas, _ = _exec("SELECT id, tipo, valor FROM catalogos WHERE activo=1 ORDER BY tipo, id")
+    vistos = set()
+    ids_borrar = []
+    for f in filas:
+        clave = (str(f["tipo"]), str(f["valor"]))
+        if clave in vistos:
+            ids_borrar.append(int(f["id"]))
+        else:
+            vistos.add(clave)
+    for cid in ids_borrar:
+        _exec("UPDATE catalogos SET activo=0 WHERE id=?", (cid,))
 
 
 def buscar_pedimento_duplicado(aa, pedimento):

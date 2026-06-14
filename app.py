@@ -74,8 +74,9 @@ div.stButton > button[kind="primary"]:hover { background:#4caf7d; }
 div.stButton > button { background:#1a1a1a; color:#FFFFFF; border:1px solid #333; }
 /* Botón del contenedor: texto grande y prominente */
 .lista-cont div.stButton > button { font-size:1.1rem; font-weight:800; letter-spacing:0.5px; }
-/* Cesto eliminar: naranja tenue */
-button[aria-label="Eliminar"], div[data-testid="column"]:last-child div.stButton > button {
+/* Cesto eliminar: naranja tenue (botones con clase ruco-del) */
+.ruco-del-marker + div div.stButton > button,
+div.stButton > button:has(span.ruco-trash) {
   background:#b07a4a !important; border-color:#c98a55 !important; color:#fff !important;
 }
 div.stButton > button:hover { background:#2a2a2a; border-color:#555; }
@@ -89,6 +90,20 @@ div.stButton > button:hover { background:#2a2a2a; border-color:#555; }
 .badge-on { color:#3ddc84; font-weight:700; }
 .badge-off { color:#ff6b6b; font-weight:700; }
 </style>
+<script>
+// Pinta de naranja tenue los botones que solo tienen el emoji de cesto
+function pintarCestos(){
+  const doc = window.parent.document;
+  doc.querySelectorAll('button').forEach(b => {
+    if(b.innerText.trim() === '🗑️'){
+      b.style.background = '#b07a4a';
+      b.style.borderColor = '#c98a55';
+      b.style.color = '#fff';
+    }
+  });
+}
+setInterval(pintarCestos, 500);
+</script>
 """, unsafe_allow_html=True)
 
 # ---------- Estado de sesión ----------

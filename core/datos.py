@@ -409,16 +409,21 @@ def cargar_pantaco_2026(registros, actor):
 
 
 def estatus_existentes(aduana=None):
-    """Lista de estatus que realmente existen en los datos (para filtrar)."""
+    """Lista de estatus que existen en los datos. '(vacío)' SIEMPRE disponible para supervisar."""
     if aduana:
         filas, _ = _exec("SELECT DISTINCT estatus FROM contenedores WHERE aduana=? AND activo=1 ORDER BY estatus", (aduana,))
     else:
         filas, _ = _exec("SELECT DISTINCT estatus FROM contenedores WHERE activo=1 ORDER BY estatus")
     res = []
+    hay_vacio = False
     for f in filas:
         e = f.get("estatus")
-        res.append(e if e else "(vacío)")
-    return res
+        if e and e.strip():
+            res.append(e)
+        else:
+            hay_vacio = True
+    # "(vacío)" siempre como opción al inicio, para poder supervisar pendientes sin estatus
+    return ["(vacío)"] + res
 
 
 def buscar_por_estatus(estatus_lista, aduana=None):

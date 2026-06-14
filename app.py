@@ -206,7 +206,6 @@ def panel_historial():
 
 # ---------- PANEL ADUANA: PANTACO ----------
 datos.inicializar_contenedores()
-datos._limpieza_unica_2()
 
 def _campo_fecha(label, valor, key):
     """Campo de fecha con formato dd/mm/yyyy guiado."""

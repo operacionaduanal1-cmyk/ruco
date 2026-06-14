@@ -372,3 +372,28 @@ def crear_contenedor_forzado(aduana, contenedor_limpio, cliente, consecutivo, an
              VALUES ('contenedores',0,?,?,?,?,?)""",
           (actor, "alta forzada", motivo, f"{consecutivo} {contenedor_limpio}", datetime.now().isoformat()))
     return consecutivo
+
+
+def cargar_pantaco_2026(registros, actor):
+    """Carga masiva de los registros 2026 de Pantaco. Una sola vez."""
+    from datetime import datetime
+    ya, _ = _exec("SELECT COUNT(*) AS n FROM contenedores WHERE aduana='PANTACO'")
+    if ya and ya[0]["n"] > 5:
+        return 0  # ya hay datos, no recargar
+    n = 0
+    anio = 2026
+    for reg in registros:
+        folio = ultimo_folio("PANTACO", anio) + 1
+        consec = f"PN-{str(anio)[-2:]}{folio:04d}"
+        _exec("""INSERT INTO contenedores
+            (consecutivo, aduana, anio, folio, contenedor, aa, referencia, pedimento,
+             fecha_pago, cliente, eta, estatus, modulo_t3, importador, detalle, regimen,
+             observaciones, creado, creado_por, activo)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1)""",
+            (consec, "PANTACO", anio, folio, reg["contenedor"], reg["aa"], reg["referencia"],
+             reg["pedimento"], reg["fecha_pago"], reg["cliente"], reg["eta"],
+             reg["estatus"] or "CAPTURA", reg["modulo_t3"], reg["importador"],
+             reg["detalle"], reg["regimen"], reg["observaciones"],
+             datetime.now().isoformat(), actor))
+        n += 1
+    return n

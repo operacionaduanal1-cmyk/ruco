@@ -140,3 +140,88 @@ def cambiar_estado_usuario(uid, activo, admin_actor):
 def historial_reciente(limite=50):
     filas, _ = _exec("SELECT * FROM historial ORDER BY id DESC LIMIT ?", (limite,))
     return filas
+
+
+# ============================================================
+# CONTENEDORES
+# ============================================================
+def inicializar_contenedores():
+    """Crea la tabla de contenedores si no existe."""
+    _exec("""CREATE TABLE IF NOT EXISTS contenedores (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        consecutivo TEXT,
+        aduana TEXT NOT NULL,
+        anio INTEGER,
+        folio INTEGER,
+        contenedor TEXT NOT NULL,
+        aa TEXT,
+        referencia TEXT,
+        pedimento TEXT,
+        fecha_pago TEXT,
+        cliente TEXT,
+        eta TEXT,
+        estatus TEXT,
+        importador TEXT,
+        detalle TEXT,
+        regimen TEXT,
+        observaciones TEXT,
+        modulo_t3 TEXT,
+        terminal TEXT,
+        modalidad TEXT,
+        revalidado TEXT,
+        finanzas TEXT,
+        liberacion TEXT,
+        eir TEXT,
+        ata TEXT,
+        asignacion TEXT,
+        ejecutivo TEXT,
+        autorizacion TEXT,
+        creado TEXT,
+        creado_por TEXT,
+        activo INTEGER DEFAULT 1)""")
+
+def ultimo_folio(aduana, anio):
+    """Devuelve el folio más alto usado en esa aduana ese año (0 si ninguno)."""
+    filas, _ = _exec(
+        "SELECT MAX(folio) AS m FROM contenedores WHERE aduana=? AND anio=?",
+        (aduana, anio))
+    if filas and filas[0].get("m") is not None:
+        return int(filas[0]["m"])
+    return 0
+
+def buscar_contenedor_existente(contenedor_limpio):
+    """Busca si un contenedor ya existe (en cualquier aduana). Devuelve la fila más reciente o None."""
+    filas, _ = _exec(
+        "SELECT * FROM contenedores WHERE contenedor=? ORDER BY id DESC LIMIT 1",
+        (contenedor_limpio,))
+    return filas[0] if filas else None
+
+def crear_contenedor(aduana, contenedor_limpio, cliente, consecutivo, anio, folio, actor):
+    """Crea un contenedor con lo mínimo. Estatus inicial CAPTURA."""
+    from datetime import datetime
+    _exec("""INSERT INTO contenedores
+        (consecutivo, aduana, anio, folio, contenedor, cliente, estatus, creado, creado_por, activo)
+        VALUES (?,?,?,?,?,?,?,?,?,1)""",
+        (consecutivo, aduana, anio, folio, contenedor_limpio, cliente,
+         "CAPTURA", datetime.now().isoformat(), actor))
+    # Historial
+    _exec("""INSERT INTO historial (tabla, registro_id, usuario, campo, valor_anterior, valor_nuevo, fecha)
+             VALUES ('contenedores',0,?,?,?,?,?)""",
+          (actor, "alta", "", f"{consecutivo} {contenedor_limpio}", datetime.now().isoformat()))
+    return consecutivo
+
+def listar_contenedores(aduana):
+    filas, _ = _exec(
+        "SELECT * FROM contenedores WHERE aduana=? AND activo=1 ORDER BY id DESC",
+        (aduana,))
+    return filas
+
+def actualizar_campo_contenedor(cid, campo, valor_nuevo, actor):
+    """Actualiza un campo y registra en historial."""
+    from datetime import datetime
+    prev, _ = _exec(f"SELECT {campo} AS v FROM contenedores WHERE id=?", (cid,))
+    valor_anterior = prev[0]["v"] if prev else ""
+    _exec(f"UPDATE contenedores SET {campo}=? WHERE id=?", (valor_nuevo, cid))
+    _exec("""INSERT INTO historial (tabla, registro_id, usuario, campo, valor_anterior, valor_nuevo, fecha)
+             VALUES ('contenedores',?,?,?,?,?,?)""",
+          (cid, actor, campo, str(valor_anterior or ""), str(valor_nuevo), datetime.now().isoformat()))

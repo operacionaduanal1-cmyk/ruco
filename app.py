@@ -171,6 +171,71 @@ def panel_historial():
             f"<br><span style='color:#5B6B7E; font-size:.75rem'>{x['fecha'][:16].replace('T',' ')}</span></div>",
             unsafe_allow_html=True)
 
+# ---------- PANEL ADUANA: PANTACO ----------
+datos.inicializar_contenedores()
+
+def panel_aduana(aduana_key, aduana_nombre):
+    actor = st.session_state.usuario["usuario"]
+    st.subheader(f"Contenedores · {aduana_nombre}")
+
+    # --- Alta mínima ---
+    with st.expander("➕ Dar de alta un contenedor", expanded=False):
+        c1, c2 = st.columns(2)
+        cont_raw = c1.text_input("Número de contenedor", key=f"alta_cont_{aduana_key}")
+        cliente = c2.text_input("Cliente", key=f"alta_cli_{aduana_key}")
+        if st.button("Dar de alta", type="primary", key=f"alta_btn_{aduana_key}"):
+            # Regla de oro 1: limpiar y validar
+            limpio = reglas.limpiar_contenedor(cont_raw)
+            ok, msg = reglas.validar_contenedor(cont_raw)
+            if not cliente.strip():
+                st.warning("El cliente es obligatorio.")
+            elif not ok:
+                st.error(f"Contenedor inválido: {msg}")
+            else:
+                # Regla de oro 3: duplicados por ventana de 3 meses
+                previo = datos.buscar_contenedor_existente(limpio)
+                clasif = "NUEVO"
+                if previo:
+                    m = reglas.meses_entre(previo.get("creado"))
+                    clasif = reglas.evaluar_duplicado(m)
+                if clasif == "DUDOSO":
+                    st.error(f"⚠️ El contenedor {limpio} ya existe con menos de 3 meses "
+                             f"(consecutivo {previo.get('consecutivo')}). "
+                             f"Posible duplicado. Requiere autorización del administrador.")
+                else:
+                    # Regla de oro 2: consecutivo por año real
+                    anio = datetime.now().year
+                    folio = datos.ultimo_folio(aduana_key, anio) + 1
+                    consec = reglas.generar_consecutivo(aduana_key, anio, folio - 1)
+                    datos.crear_contenedor(aduana_key, limpio, cliente.strip(),
+                                           consec, anio, folio, actor)
+                    if clasif == "REINGRESO":
+                        st.success(f"Reingreso registrado: {consec} · {limpio} "
+                                   f"(ya había venido antes, +3 meses).")
+                    else:
+                        st.success(f"Contenedor dado de alta: {consec} · {limpio}")
+                    st.rerun()
+
+    # --- Lista de contenedores ---
+    conts = datos.listar_contenedores(aduana_key)
+    if not conts:
+        st.info("Aún no hay contenedores capturados en esta aduana.")
+        return
+    st.markdown(f"##### {len(conts)} contenedores")
+    for ct in conts:
+        with st.container(border=True):
+            c1, c2, c3 = st.columns([2, 2, 1.2])
+            c1.markdown(f"**{ct['consecutivo']}**  \n`{ct['contenedor']}`")
+            c2.markdown(f"Cliente: {ct.get('cliente') or '—'}  \nETA: {ct.get('eta') or '—'}")
+            estatus_actual = ct.get("estatus") or "CAPTURA"
+            nuevo_est = c3.selectbox("Estatus", reglas.ESTATUS,
+                                     index=reglas.ESTATUS.index(estatus_actual) if estatus_actual in reglas.ESTATUS else 0,
+                                     key=f"est_{ct['id']}")
+            if nuevo_est != estatus_actual:
+                datos.actualizar_campo_contenedor(ct["id"], "estatus", nuevo_est, actor)
+                st.rerun()
+
+
 # ---------- RUTEO ----------
 if st.session_state.usuario is None:
     pantalla_login()
@@ -182,7 +247,8 @@ else:
         st.session_state.usuario = None; st.rerun()
 
     if u["rol"] == "Administrador":
-        t1, t2 = st.tabs(["👥 Usuarios", "🕓 Historial"])
+        t_pan, t1, t2 = st.tabs(["📦 Pantaco", "👥 Usuarios", "🕓 Historial"])
+        with t_pan: panel_aduana("PANTACO", "Pantaco")
         with t1: panel_usuarios()
         with t2: panel_historial()
     else:

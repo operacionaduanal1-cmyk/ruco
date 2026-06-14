@@ -60,3 +60,17 @@ def evaluar_duplicado(meses_desde_ultimo):
     if meses_desde_ultimo >= 3:
         return "REINGRESO"
     return "DUDOSO"  # requiere autorización del administrador
+
+
+# --- Helper: meses entre dos fechas ISO ---
+def meses_entre(fecha_iso_anterior, fecha_iso_ahora=None):
+    """Calcula cuántos meses pasaron entre dos fechas. None si no hay fecha anterior."""
+    from datetime import datetime
+    if not fecha_iso_anterior:
+        return None
+    try:
+        ant = datetime.fromisoformat(str(fecha_iso_anterior))
+    except Exception:
+        return None
+    ahora = datetime.fromisoformat(fecha_iso_ahora) if fecha_iso_ahora else datetime.now()
+    return (ahora.year - ant.year) * 12 + (ahora.month - ant.month)

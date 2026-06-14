@@ -220,6 +220,8 @@ def panel_historial():
 
 # ---------- PANEL ADUANA: PANTACO ----------
 datos.inicializar_contenedores()
+# Limpieza única de contenedores (se autodesactiva tras ejecutarse)
+datos._limpieza_unica_contenedores()
 
 def _campo_fecha(label, valor, key):
     """Campo de fecha con formato dd/mm/yyyy guiado."""
@@ -566,21 +568,6 @@ def panel_base():
                 st.rerun()
             else:
                 st.error("No se encontró el archivo de carga.")
-        st.divider()
-        st.caption("⚠️ Borra TODOS los contenedores para empezar pruebas de cero.")
-        if st.button("Borrar todos los contenedores", key="borrar_todo"):
-            st.session_state["confirmar_borrado_total"] = True
-        if st.session_state.get("confirmar_borrado_total"):
-            st.warning("¿Seguro? Esto borra TODOS los contenedores. No se puede deshacer.")
-            bc = st.columns(2)
-            if bc[0].button("Sí, borrar todo", type="primary", key="borrar_todo_si"):
-                datos.borrar_todos_contenedores()
-                st.session_state["confirmar_borrado_total"] = False
-                st.success("Todos los contenedores borrados.")
-                st.rerun()
-            if bc[1].button("Cancelar", key="borrar_todo_no"):
-                st.session_state["confirmar_borrado_total"] = False
-                st.rerun()
 
     st.caption("Aquí administras las listas que aparecen en los formularios. "
                "Igual que la hoja BASE de tu Excel.")

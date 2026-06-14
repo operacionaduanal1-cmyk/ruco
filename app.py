@@ -15,25 +15,53 @@ datos.inicializar()
 st.markdown("""
 <style>
 :root {
-  --azul: #0B2545;
-  --azul2: #13315C;
+  --negro: #000000;
+  --gris-panel: #1a1a1a;
+  --gris-sel: #2a2a2a;
   --ambar: #E8A33D;
-  --gris: #5B6B7E;
+  --texto: #FFFFFF;
+  --texto-sec: #9aa0a6;
 }
-.stApp { background: #F5F6F8; }
+.stApp { background: #000000; color: #FFFFFF; }
+/* Texto general en blanco */
+.stApp, .stApp p, .stApp label, .stApp span, .stApp div,
+h1,h2,h3,h4,h5,h6 { color: #FFFFFF; }
+/* Encabezado RUCO */
 .ruco-header {
-  background: linear-gradient(100deg, var(--azul), var(--azul2));
+  background: linear-gradient(100deg, #111111, #1a1a1a);
   padding: 1.1rem 1.5rem; border-radius: 12px; margin-bottom: 1.2rem;
   display:flex; align-items:center; justify-content:space-between;
+  border: 1px solid #2a2a2a;
 }
-.ruco-title { color:#fff; font-size:1.5rem; font-weight:800; letter-spacing:-0.5px; margin:0; }
-.ruco-sub { color:#A9C0E0; font-size:0.78rem; margin:0; letter-spacing:2px; }
+.ruco-title { color:#FFFFFF; font-size:1.5rem; font-weight:800; letter-spacing:-0.5px; margin:0; }
+.ruco-sub { color:#9aa0a6; font-size:0.78rem; margin:0; letter-spacing:2px; }
 .ruco-user { color:#E8A33D; font-weight:700; font-size:0.9rem; }
-div.stButton > button[kind="primary"] {
-  background: var(--ambar); color:#0B2545; border:none; font-weight:700;
+/* Campos de texto: fondo gris oscuro, texto blanco */
+.stTextInput input, .stTextArea textarea, .stSelectbox div[data-baseweb="select"] > div {
+  background-color: #1a1a1a !important;
+  color: #FFFFFF !important;
+  border: 1px solid #333 !important;
 }
-.badge-on { color:#1a7d3c; font-weight:700; }
-.badge-off { color:#b03030; font-weight:700; }
+/* Selecciones / hover en gris */
+.stSelectbox div[data-baseweb="select"]:hover > div,
+li:hover, [role="option"]:hover { background-color: #2a2a2a !important; }
+/* Botón primario ambar */
+div.stButton > button[kind="primary"] {
+  background: #E8A33D; color:#000000; border:none; font-weight:700;
+}
+div.stButton > button[kind="primary"]:hover { background:#f0b658; }
+/* Botones secundarios oscuros */
+div.stButton > button { background:#1a1a1a; color:#FFFFFF; border:1px solid #333; }
+div.stButton > button:hover { background:#2a2a2a; border-color:#555; }
+/* Contenedores con borde */
+[data-testid="stExpander"], div[data-testid="stVerticalBlockBorderWrapper"] {
+  background:#0d0d0d; border-color:#2a2a2a !important;
+}
+/* Pestañas */
+.stTabs [data-baseweb="tab"] { color:#9aa0a6; }
+.stTabs [aria-selected="true"] { color:#E8A33D !important; }
+.badge-on { color:#3ddc84; font-weight:700; }
+.badge-off { color:#ff6b6b; font-weight:700; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -48,8 +76,8 @@ def pantalla_login():
         st.markdown("<div style='height:8vh'></div>", unsafe_allow_html=True)
         st.markdown("""
         <div style='text-align:center; margin-bottom:1.5rem'>
-          <div style='font-size:2.6rem; font-weight:800; color:#0B2545; letter-spacing:-1px'>RUCO</div>
-          <div style='color:#5B6B7E; font-size:0.8rem; letter-spacing:3px'>REPORTE ÚNICO DE CONTENEDORES OFICIAL</div>
+          <div style='font-size:2.6rem; font-weight:800; color:#FFFFFF; letter-spacing:-1px'>RUCO</div>
+          <div style='color:#9aa0a6; font-size:0.8rem; letter-spacing:3px'>REPORTE ÚNICO DE CONTENEDORES OFICIAL</div>
         </div>
         """, unsafe_allow_html=True)
         with st.container(border=True):

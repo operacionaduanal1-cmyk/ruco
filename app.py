@@ -480,12 +480,14 @@ def panel_busqueda():
 
     else:  # Estatus
         est_disp = datos.estatus_existentes()
-        est_sel = c1.selectbox("Estatus", ["(seleccionar)"] + est_disp,
-                               key="busc_est", label_visibility="collapsed")
-        if est_sel == "(seleccionar)":
+        est_sel = c1.multiselect("Estatus", est_disp,
+                                 key="busc_est", label_visibility="collapsed",
+                                 placeholder="Selecciona uno o varios estatus")
+        if not est_sel:
             return
         fa = st.selectbox("Filtrar aduana", ["TODAS", "PANTACO", "MANZANILLO", "LAZARO"], key="f_aduana_est")
-        estatus_q = "" if est_sel == "(vacío)" else est_sel
+        # Convertir "(vacío)" a ""
+        estatus_q = ["" if e == "(vacío)" else e for e in est_sel]
         resultados = datos.buscar_por_estatus(estatus_q,
                                               aduana=None if fa == "TODAS" else fa)
 
@@ -501,7 +503,6 @@ def panel_busqueda():
         with st.container(border=True):
             a, b, c = st.columns([2, 2, 1.5])
             a.markdown(
-                f"<div style='font-size:0.72rem;color:#9aa0a6'>{r['consecutivo']}</div>"
                 f"<div style='font-size:1.1rem;font-weight:800'>{r['contenedor']}</div>"
                 f"<div style='font-size:0.7rem;color:#9aa0a6'>REF: {r.get('referencia') or '—'} · "
                 f"PED: {r.get('pedimento') or '—'}</div>", unsafe_allow_html=True)

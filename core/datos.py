@@ -412,16 +412,37 @@ def estatus_existentes(aduana=None):
     return res
 
 
-def buscar_por_estatus(estatus, aduana=None):
-    """Trae contenedores por estatus (incluye vacíos si estatus='')."""
-    if estatus == "":
-        sql = "SELECT * FROM contenedores WHERE activo=1 AND (estatus IS NULL OR estatus='')"
-        params = []
-    else:
-        sql = "SELECT * FROM contenedores WHERE activo=1 AND estatus=?"
-        params = [estatus]
+def buscar_por_estatus(estatus_lista, aduana=None):
+    """Trae contenedores cuyo estatus esté en la lista. '' representa vacíos.
+    Ordena por ETA (más viejo arriba)."""
+    if isinstance(estatus_lista, str):
+        estatus_lista = [estatus_lista]
+    incluye_vacio = "" in estatus_lista
+    con_valor = [e for e in estatus_lista if e != ""]
+
+    condiciones = []
+    params = []
+    if con_valor:
+        placeholders = ",".join("?" for _ in con_valor)
+        condiciones.append(f"estatus IN ({placeholders})")
+        params.extend(con_valor)
+    if incluye_vacio:
+        condiciones.append("(estatus IS NULL OR estatus='')")
+    if not condiciones:
+        return []
+    sql = "SELECT * FROM contenedores WHERE activo=1 AND (" + " OR ".join(condiciones) + ")"
     if aduana:
         sql += " AND aduana=?"; params.append(aduana)
-    sql += " ORDER BY aduana, id ASC"
     filas, _ = _exec(sql, tuple(params))
-    return filas
+    return _ordenar_por_eta(filas)
+
+def _ordenar_por_eta(filas):
+    """Ordena por ETA dd/mm/yyyy, más viejo primero. Vacíos al final."""
+    from datetime import datetime
+    def clave(f):
+        eta = f.get("eta") or ""
+        try:
+            return (0, datetime.strptime(eta.strip(), "%d/%m/%Y"))
+        except Exception:
+            return (1, datetime.max)
+    return sorted(filas, key=clave)

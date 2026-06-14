@@ -406,11 +406,21 @@ def _ficha_edicion(ct, actor, es_admin):
     with r3[2]:
         if puede("estatus"): n_est = st.selectbox("ESTATUS", opciones_con_actual(ests, ct.get("estatus")), key=f"ed_est_{ct['id']}")
         else: mostrar_solo_lectura("ESTATUS", ct.get("estatus") or "SIN ESTATUS")
-    # Fila 4: módulo T3, fecha de pago
+    # Fila 4: módulo T3 (focos), fecha de pago
     r4 = st.columns(3)
     with r4[0]:
-        if puede("modulo_t3"): n_t3 = st.selectbox("MODULO T3", opciones_con_actual(t3s, ct.get("modulo_t3")), key=f"ed_t3_{ct['id']}")
-        else: mostrar_solo_lectura("MODULO T3", ct.get("modulo_t3"))
+        # MÓDULO T3 como semáforo de focos. Guarda texto: VERDE / ROJO / BLOQUEADO
+        T3_OPCIONES = ["⚪ Sin definir", "🟢 VERDE", "🔴 ROJO", "🔵 BLOQUEADO"]
+        T3_MAP = {"⚪ Sin definir": "", "🟢 VERDE": "VERDE", "🔴 ROJO": "ROJO", "🔵 BLOQUEADO": "BLOQUEADO"}
+        T3_INV = {"": "⚪ Sin definir", "VERDE": "🟢 VERDE", "ROJO": "🔴 ROJO", "BLOQUEADO": "🔵 BLOQUEADO"}
+        actual_t3 = (ct.get("modulo_t3") or "").strip().upper()
+        idx_t3 = list(T3_OPCIONES).index(T3_INV.get(actual_t3, "⚪ Sin definir"))
+        if puede("modulo_t3"):
+            sel_t3 = st.radio("MODULO T3", T3_OPCIONES, index=idx_t3, horizontal=True, key=f"ed_t3_{ct['id']}")
+            n_t3 = T3_MAP[sel_t3]
+        else:
+            mostrar_solo_lectura("MODULO T3", T3_INV.get(actual_t3, "⚪ Sin definir"))
+            n_t3 = "(sin cambio)"
     with r4[1]:
         if puede("fecha_pago"): n_fp = st.text_input("FECHA DE PAGO", value=ct.get("fecha_pago") or "", placeholder="dd/mm/yyyy", max_chars=10, key=f"ed_fp_{ct['id']}")
         else: mostrar_solo_lectura("FECHA DE PAGO", ct.get("fecha_pago"))
@@ -466,11 +476,15 @@ def _ficha_edicion(ct, actor, es_admin):
             if not okp: st.error(f"PEDIMENTO: {vp}"); return
             datos.actualizar_campo_contenedor(ct["id"], "pedimento", vp, actor)
         for campo, val in [("cliente",n_cli),("importador",n_imp),("aa",n_aa),
-                           ("regimen",n_reg),("detalle",n_det),("modulo_t3",n_t3),("estatus",n_est)]:
+                           ("regimen",n_reg),("detalle",n_det),("estatus",n_est)]:
             if puede(campo) and val and val not in ("(sin cambio)", "(vacío)"):
                 nuevo_val = reglas.normalizar_texto(val)
                 if nuevo_val != (ct.get(campo) or "").strip():
                     datos.actualizar_campo_contenedor(ct["id"], campo, nuevo_val, actor)
+        # MÓDULO T3 (focos): puede quedar vacío "Sin definir", se guarda tal cual
+        if puede("modulo_t3") and n_t3 != "(sin cambio)":
+            if n_t3 != (ct.get("modulo_t3") or "").strip():
+                datos.actualizar_campo_contenedor(ct["id"], "modulo_t3", n_t3, actor)
         if puede("eta") and n_eta != "(sin cambio)" and n_eta.strip() != (ct.get("eta") or "").strip():
             datos.actualizar_campo_contenedor(ct["id"], "eta", n_eta.strip(), actor)
         if puede("fecha_pago") and n_fp != "(sin cambio)" and n_fp.strip() != (ct.get("fecha_pago") or "").strip():

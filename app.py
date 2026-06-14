@@ -167,18 +167,20 @@ def panel_usuarios():
         c1, c2, c3, c4, c5 = st.columns([2.5, 2, 1.3, 1, 1])
         estado = "<span class='badge-on'>● Activo</span>" if u["activo"] else "<span class='badge-off'>○ Inactivo</span>"
         ligado = f" · cliente: {u['cliente_ligado']}" if u["cliente_ligado"] else ""
-        c1.markdown(f"**{u['nombre']}**  \n`{u['usuario']}`")
+        # Nombre clicable -> abre su perfil de permisos
+        if c1.button(f"{u['nombre']}  ·  {u['usuario']}", key=f"perfil_{u['id']}"):
+            st.session_state[f"abriendo_perfil_{u['id']}"] = not st.session_state.get(f"abriendo_perfil_{u['id']}", False)
         c2.markdown(f"{u['rol']}{ligado}")
         c3.markdown(estado, unsafe_allow_html=True)
         # No se puede tocar al admin principal
-        if u["rol"] != "Administrador" or u["usuario"] != "admin":
+        es_admin_principal = (u["rol"] == "Administrador" and u["usuario"] == "admin")
+        if not es_admin_principal:
             if u["activo"]:
                 if c4.button("Desactivar", key=f"off{u['id']}"):
                     datos.cambiar_estado_usuario(u["id"], False, actor); st.rerun()
             else:
                 if c4.button("Activar", key=f"on{u['id']}"):
                     datos.cambiar_estado_usuario(u["id"], True, actor); st.rerun()
-            # Eliminar (con confirmación)
             if c5.button("Eliminar", key=f"delu{u['id']}"):
                 st.session_state[f"borrar_user_{u['id']}"] = True
             if st.session_state.get(f"borrar_user_{u['id']}"):
@@ -191,6 +193,31 @@ def panel_usuarios():
                 if bc[1].button("Cancelar", key=f"delu_no{u['id']}"):
                     st.session_state[f"borrar_user_{u['id']}"] = False
                     st.rerun()
+
+        # Perfil de permisos (al hacer clic en el nombre)
+        if st.session_state.get(f"abriendo_perfil_{u['id']}"):
+            with st.container(border=True):
+                if es_admin_principal:
+                    st.info("El administrador puede editar todo. No requiere permisos.")
+                else:
+                    st.markdown(f"**Permisos de edición de {u['nombre']}**")
+                    st.caption("Marca los campos que este usuario PUEDE editar. Los demás solo los verá.")
+                    permisos_actuales = datos.obtener_permisos(u["id"])
+                    seleccion = []
+                    # casillas en 3 columnas
+                    campos = datos.CAMPOS_EDITABLES
+                    colp = st.columns(3)
+                    for i, (clave, etiqueta) in enumerate(campos):
+                        with colp[i % 3]:
+                            marcado = st.checkbox(etiqueta, value=(clave in permisos_actuales),
+                                                  key=f"perm_{u['id']}_{clave}")
+                            if marcado:
+                                seleccion.append(clave)
+                    if st.button("Guardar permisos", type="primary", key=f"savperm_{u['id']}"):
+                        datos.guardar_permisos(u["id"], seleccion, actor)
+                        st.success("Permisos guardados.")
+                        st.session_state[f"abriendo_perfil_{u['id']}"] = False
+                        st.rerun()
 
 # ---------- PANEL ADMIN: HISTORIAL ----------
 def panel_historial():
@@ -217,58 +244,111 @@ def _campo_fecha(label, valor, key):
 
 
 def _ficha_edicion(ct, actor, es_admin):
-    st.markdown(f"#### Editar {ct['consecutivo']} · {ct['contenedor']}")
+    st.markdown(f"#### Editar {ct['contenedor']}")
+
+    # Determinar qué campos puede editar este usuario
+    if es_admin:
+        permitidos = [c[0] for c in datos.CAMPOS_EDITABLES]  # admin edita todo
+    else:
+        usr = datos.obtener_usuario_por_username(actor)
+        permitidos = datos.obtener_permisos(usr["id"]) if usr else []
+
+    def puede(campo):
+        return campo in permitidos
+
+    def mostrar_solo_lectura(etiqueta, valor):
+        st.markdown(
+            f"<div style='font-size:0.72rem;color:#9aa0a6'>{etiqueta}</div>"
+            f"<div style='padding:6px 0;color:#cfcfcf'>{valor or '—'}</div>",
+            unsafe_allow_html=True)
+
     cli = ["(sin cambio)"] + datos.listar_catalogo("CLIENTE")
     imp = ["(sin cambio)"] + datos.listar_catalogo("IMPORTADOR")
     aas = ["(sin cambio)"] + datos.listar_catalogo("AA")
     regs = ["(sin cambio)"] + datos.listar_catalogo("REGIMEN")
     dets = ["(sin cambio)"] + datos.listar_catalogo("DETALLE")
     t3s = ["(sin cambio)"] + datos.listar_catalogo("T3")
+    ests = ["(sin cambio)"] + reglas.ESTATUS
+
+    n_cli = n_imp = n_aa = n_ref = n_ped = n_eta = "(sin cambio)"
+    n_reg = n_det = n_fp = n_t3 = n_obs = n_est = "(sin cambio)"
 
     # Fila 1: cliente, importador, agente
     r1 = st.columns(3)
-    n_cli = r1[0].selectbox("CLIENTE", cli, key=f"ed_cli_{ct['id']}")
-    n_imp = r1[1].selectbox("IMPORTADOR", imp, key=f"ed_imp_{ct['id']}")
-    n_aa = r1[2].selectbox("AGENTE ADUANAL", aas, key=f"ed_aa_{ct['id']}")
+    with r1[0]:
+        if puede("cliente"): n_cli = st.selectbox("CLIENTE", cli, key=f"ed_cli_{ct['id']}")
+        else: mostrar_solo_lectura("CLIENTE", ct.get("cliente"))
+    with r1[1]:
+        if puede("importador"): n_imp = st.selectbox("IMPORTADOR", imp, key=f"ed_imp_{ct['id']}")
+        else: mostrar_solo_lectura("IMPORTADOR", ct.get("importador"))
+    with r1[2]:
+        if puede("aa"): n_aa = st.selectbox("AGENTE ADUANAL", aas, key=f"ed_aa_{ct['id']}")
+        else: mostrar_solo_lectura("AGENTE ADUANAL", ct.get("aa"))
     # Fila 2: referencia, pedimento, ETA
     r2 = st.columns(3)
-    n_ref = r2[0].text_input("REFERENCIA", value=ct.get("referencia") or "", key=f"ed_ref_{ct['id']}")
-    n_ped = r2[1].text_input("PEDIMENTO", value=ct.get("pedimento") or "", key=f"ed_ped_{ct['id']}")
-    n_eta = _campo_fecha("ETA", ct.get("eta"), f"ed_eta_{ct['id']}")
+    with r2[0]:
+        if puede("referencia"): n_ref = st.text_input("REFERENCIA", value=ct.get("referencia") or "", key=f"ed_ref_{ct['id']}")
+        else: mostrar_solo_lectura("REFERENCIA", ct.get("referencia"))
+    with r2[1]:
+        if puede("pedimento"): n_ped = st.text_input("PEDIMENTO", value=ct.get("pedimento") or "", key=f"ed_ped_{ct['id']}")
+        else: mostrar_solo_lectura("PEDIMENTO", ct.get("pedimento"))
+    with r2[2]:
+        if puede("eta"): n_eta = st.text_input("ETA", value=ct.get("eta") or "", placeholder="dd/mm/yyyy", max_chars=10, key=f"ed_eta_{ct['id']}")
+        else: mostrar_solo_lectura("ETA", ct.get("eta"))
     # Fila 3: regimen, detalle, fecha pago
     r3 = st.columns(3)
-    n_reg = r3[0].selectbox("REGIMEN", regs, key=f"ed_reg_{ct['id']}")
-    n_det = r3[1].selectbox("DETALLE", dets, key=f"ed_det_{ct['id']}")
-    n_fp = r3[2].text_input("FECHA DE PAGO", value=ct.get("fecha_pago") or "",
-                            placeholder="dd/mm/yyyy", max_chars=10, key=f"ed_fp_{ct['id']}")
-    # Fila 4: T3, observaciones
-    n_t3 = st.selectbox("MODULO T3", t3s, key=f"ed_t3_{ct['id']}")
-    n_obs = st.text_area("OBSERVACIONES", value=ct.get("observaciones") or "", key=f"ed_obs_{ct['id']}")
+    with r3[0]:
+        if puede("regimen"): n_reg = st.selectbox("REGIMEN", regs, key=f"ed_reg_{ct['id']}")
+        else: mostrar_solo_lectura("REGIMEN", ct.get("regimen"))
+    with r3[1]:
+        if puede("detalle"): n_det = st.selectbox("DETALLE", dets, key=f"ed_det_{ct['id']}")
+        else: mostrar_solo_lectura("DETALLE", ct.get("detalle"))
+    with r3[2]:
+        if puede("fecha_pago"): n_fp = st.text_input("FECHA DE PAGO", value=ct.get("fecha_pago") or "", placeholder="dd/mm/yyyy", max_chars=10, key=f"ed_fp_{ct['id']}")
+        else: mostrar_solo_lectura("FECHA DE PAGO", ct.get("fecha_pago"))
+    # Fila 4: estatus, T3
+    r4 = st.columns(3)
+    with r4[0]:
+        if puede("estatus"): n_est = st.selectbox("ESTATUS", ests, key=f"ed_est_{ct['id']}")
+        else: mostrar_solo_lectura("ESTATUS", ct.get("estatus") or "SIN ESTATUS")
+    with r4[1]:
+        if puede("modulo_t3"): n_t3 = st.selectbox("MODULO T3", t3s, key=f"ed_t3_{ct['id']}")
+        else: mostrar_solo_lectura("MODULO T3", ct.get("modulo_t3"))
+    # Observaciones
+    if puede("observaciones"):
+        n_obs = st.text_area("OBSERVACIONES", value=ct.get("observaciones") or "", key=f"ed_obs_{ct['id']}")
+    else:
+        mostrar_solo_lectura("OBSERVACIONES", ct.get("observaciones"))
 
-    if st.button("Guardar cambios", type="primary", key=f"ed_save_{ct['id']}"):
-        # validar fechas
-        ok_eta, msg_eta = reglas.validar_fecha(n_eta)
-        ok_fp, msg_fp = reglas.validar_fecha(n_fp)
-        if not ok_eta:
+    # Si no puede editar NADA, avisar
+    if not permitidos and not es_admin:
+        st.info("Solo puedes consultar este contenedor. No tienes campos asignados para editar.")
+
+    if (permitidos or es_admin) and st.button("Guardar cambios", type="primary", key=f"ed_save_{ct['id']}"):
+        ok_eta, msg_eta = reglas.validar_fecha(n_eta if n_eta != "(sin cambio)" else "")
+        ok_fp, msg_fp = reglas.validar_fecha(n_fp if n_fp != "(sin cambio)" else "")
+        if puede("eta") and not ok_eta:
             st.error(f"ETA: {msg_eta}"); return
-        if not ok_fp:
+        if puede("fecha_pago") and not ok_fp:
             st.error(f"FECHA DE PAGO: {msg_fp}"); return
-        # validar referencia/pedimento si se llenaron
-        if n_ref.strip():
+        if puede("referencia") and n_ref.strip():
             okr, vr = reglas.validar_referencia(n_ref)
             if not okr: st.error(f"REFERENCIA: {vr}"); return
             datos.actualizar_campo_contenedor(ct["id"], "referencia", vr, actor)
-        if n_ped.strip():
+        if puede("pedimento") and n_ped.strip():
             okp, vp = reglas.validar_pedimento(n_ped)
             if not okp: st.error(f"PEDIMENTO: {vp}"); return
             datos.actualizar_campo_contenedor(ct["id"], "pedimento", vp, actor)
         for campo, val in [("cliente",n_cli),("importador",n_imp),("aa",n_aa),
-                           ("regimen",n_reg),("detalle",n_det),("modulo_t3",n_t3)]:
-            if val and val != "(sin cambio)":
+                           ("regimen",n_reg),("detalle",n_det),("modulo_t3",n_t3),("estatus",n_est)]:
+            if puede(campo) and val and val != "(sin cambio)":
                 datos.actualizar_campo_contenedor(ct["id"], campo, reglas.normalizar_texto(val), actor)
-        if n_eta.strip(): datos.actualizar_campo_contenedor(ct["id"], "eta", n_eta.strip(), actor)
-        if n_fp.strip(): datos.actualizar_campo_contenedor(ct["id"], "fecha_pago", n_fp.strip(), actor)
-        if n_obs.strip(): datos.actualizar_campo_contenedor(ct["id"], "observaciones", reglas.normalizar_texto(n_obs), actor)
+        if puede("eta") and n_eta.strip() and n_eta != "(sin cambio)":
+            datos.actualizar_campo_contenedor(ct["id"], "eta", n_eta.strip(), actor)
+        if puede("fecha_pago") and n_fp.strip() and n_fp != "(sin cambio)":
+            datos.actualizar_campo_contenedor(ct["id"], "fecha_pago", n_fp.strip(), actor)
+        if puede("observaciones") and n_obs.strip() and n_obs != "(sin cambio)":
+            datos.actualizar_campo_contenedor(ct["id"], "observaciones", reglas.normalizar_texto(n_obs), actor)
         st.success("Guardado.")
         st.session_state[f"editando_{ct['id']}"] = False
         st.rerun()

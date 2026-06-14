@@ -83,8 +83,14 @@ def inicializar():
         password_hash TEXT NOT NULL,
         rol TEXT NOT NULL,
         cliente_ligado TEXT,
+        permisos TEXT,
         activo INTEGER DEFAULT 1,
         creado TEXT)""")
+    # Asegurar columna permisos si la tabla ya existía
+    try:
+        _exec("ALTER TABLE usuarios ADD COLUMN permisos TEXT")
+    except Exception:
+        pass
     _exec("""CREATE TABLE IF NOT EXISTS historial (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         tabla TEXT, registro_id INTEGER, usuario TEXT,
@@ -462,3 +468,48 @@ def _ordenar_por_eta(filas):
     return sorted(filas, key=clave)
 
 
+
+
+# ============================================================
+# PERMISOS POR USUARIO (qué campos puede editar)
+# ============================================================
+# Campos editables disponibles (clave interna -> etiqueta visible)
+CAMPOS_EDITABLES = [
+    ("contenedor", "Contenedor"),
+    ("cliente", "Cliente"),
+    ("importador", "Importador"),
+    ("aa", "Agente aduanal"),
+    ("referencia", "Referencia"),
+    ("pedimento", "Pedimento"),
+    ("eta", "ETA"),
+    ("fecha_pago", "Fecha de pago"),
+    ("regimen", "Régimen"),
+    ("detalle", "Detalle"),
+    ("modulo_t3", "Módulo T3"),
+    ("estatus", "Estatus"),
+    ("observaciones", "Observaciones"),
+]
+
+def guardar_permisos(uid, lista_campos, admin_actor):
+    """Guarda los campos que un usuario puede editar (lista de claves)."""
+    import json
+    permisos = json.dumps(lista_campos)
+    _exec("UPDATE usuarios SET permisos=? WHERE id=?", (permisos, uid))
+    _exec("""INSERT INTO historial (tabla, registro_id, usuario, campo, valor_anterior, valor_nuevo, fecha)
+             VALUES ('usuarios',?,?,?,?,?,?)""",
+          (uid, admin_actor, "permisos", "", permisos, datetime.now().isoformat()))
+
+def obtener_permisos(uid):
+    """Devuelve la lista de campos que el usuario puede editar."""
+    import json
+    filas, _ = _exec("SELECT permisos FROM usuarios WHERE id=?", (uid,))
+    if filas and filas[0].get("permisos"):
+        try:
+            return json.loads(filas[0]["permisos"])
+        except Exception:
+            return []
+    return []
+
+def obtener_usuario_por_username(username):
+    filas, _ = _exec("SELECT * FROM usuarios WHERE usuario=?", (username,))
+    return filas[0] if filas else None

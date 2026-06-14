@@ -23,15 +23,17 @@ if _os.environ.get("RUCO_DIAG") != "off":
             st.write("Turso activo:", datos._es_turso())
         except Exception as _e:
             st.error(f"Error base: {_e}")
-        if st.button("Re-sembrar admin"):
+        if st.button("Probar escritura"):
+            import traceback as _tb
             try:
                 datos._exec("""INSERT INTO usuarios (nombre, usuario, password_hash, rol, activo, creado)
                     VALUES (?,?,?,?,1,?)""",
-                    ("Administrador RUCO","admin",datos.hash_password("admin123"),
-                     "Administrador", __import__("datetime").datetime.now().isoformat()))
-                st.success("Admin creado. Recarga.")
+                    ("Test Escritura","testw",datos.hash_password("x"),
+                     "Operaciones", __import__("datetime").datetime.now().isoformat()))
+                st.success("Escritura OK. Recarga.")
             except Exception as _e:
-                st.error(f"No se pudo: {_e}")
+                st.error(f"ERROR: {repr(_e)}")
+                st.code(_tb.format_exc())
 # --- FIN DIAGNOSTICO ---
 
 # ---------- Estilo visual ----------

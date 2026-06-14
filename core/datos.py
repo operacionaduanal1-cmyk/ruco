@@ -47,11 +47,17 @@ def _exec(sql, params=()):
     """Ejecuta una sentencia. Devuelve (filas_como_dict, lastrowid)."""
     if _es_turso():
         client = _get_turso()
-        # libsql-client usa ? como placeholders, igual que sqlite
         rs = client.execute(sql, list(params))
-        cols = rs.columns if rs.columns else []
-        filas = [dict(zip(cols, row)) for row in rs.rows]
-        last = rs.last_insert_rowid if hasattr(rs, "last_insert_rowid") else None
+        filas = []
+        try:
+            cols = list(rs.columns) if getattr(rs, "columns", None) else []
+            if cols:
+                for row in rs.rows:
+                    # cada row se puede indexar por posicion
+                    filas.append({cols[i]: row[i] for i in range(len(cols))})
+        except Exception:
+            filas = []
+        last = getattr(rs, "last_insert_rowid", None)
         return filas, last
     else:
         import sqlite3

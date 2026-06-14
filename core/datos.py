@@ -314,3 +314,40 @@ def crear_tipo_catalogo(nuevo_tipo, actor):
     # marcador para que el tipo exista aunque no tenga valores aún
     _exec("INSERT INTO catalogos (tipo, valor, activo) VALUES (?,'(vacío)',0)", (nuevo_tipo,))
     return True, f"Catálogo creado: {nuevo_tipo}"
+
+
+def limpiar_duplicados_catalogo():
+    """Elimina valores repetidos en catalogos, deja solo unicos."""
+    tipos = tipos_catalogo()
+    for tipo in tipos:
+        filas, _ = _exec("SELECT id, valor FROM catalogos WHERE tipo=? AND activo=1 ORDER BY id", (tipo,))
+        vistos = set()
+        for f in filas:
+            v = f["valor"]
+            if v in vistos:
+                _exec("UPDATE catalogos SET activo=0 WHERE id=?", (f["id"],))
+            else:
+                vistos.add(v)
+
+
+def buscar_pedimento_duplicado(aa, pedimento):
+    """Busca si ya existe mismo agente aduanal + pedimento. Devuelve fila o None."""
+    if not aa or not pedimento:
+        return None
+    filas, _ = _exec(
+        "SELECT * FROM contenedores WHERE aa=? AND pedimento=? AND activo=1 LIMIT 1",
+        (aa, pedimento))
+    return filas[0] if filas else None
+
+def crear_contenedor_forzado(aduana, contenedor_limpio, cliente, consecutivo, anio, folio, actor, motivo):
+    """Alta forzada por admin pese a duplicado. Registra el motivo."""
+    from datetime import datetime
+    _exec("""INSERT INTO contenedores
+        (consecutivo, aduana, anio, folio, contenedor, cliente, estatus, creado, creado_por, activo)
+        VALUES (?,?,?,?,?,?,?,?,?,1)""",
+        (consecutivo, aduana, anio, folio, contenedor_limpio, cliente,
+         "CAPTURA", datetime.now().isoformat(), actor))
+    _exec("""INSERT INTO historial (tabla, registro_id, usuario, campo, valor_anterior, valor_nuevo, fecha)
+             VALUES ('contenedores',0,?,?,?,?,?)""",
+          (actor, "alta forzada", motivo, f"{consecutivo} {contenedor_limpio}", datetime.now().isoformat()))
+    return consecutivo

@@ -18,6 +18,7 @@ _ruta_cat = _os2.path.join(_os2.path.dirname(__file__), "catalogos_base.json")
 if _os2.path.exists(_ruta_cat):
     with open(_ruta_cat, encoding="utf-8") as _fc:
         datos.cargar_catalogos_iniciales(_json.load(_fc))
+datos.limpiar_duplicados_catalogo()
 
 
 # ---------- Estilo visual ----------
@@ -182,52 +183,66 @@ def panel_historial():
 # ---------- PANEL ADUANA: PANTACO ----------
 datos.inicializar_contenedores()
 
+def _campo_fecha(label, valor, key):
+    """Campo de fecha con formato dd/mm/yyyy guiado."""
+    return st.text_input(label, value=valor or "", key=key,
+                         placeholder="dd/mm/yyyy", max_chars=10)
+
+
 def _ficha_edicion(ct, actor, es_admin):
-    """Ficha de edición completa de un contenedor (admin edita todo)."""
     st.markdown(f"#### Editar {ct['consecutivo']} · {ct['contenedor']}")
-    clientes = ["(sin cambio)"] + datos.listar_catalogo("CLIENTE")
-    importadores = ["(sin cambio)"] + datos.listar_catalogo("IMPORTADOR")
+    cli = ["(sin cambio)"] + datos.listar_catalogo("CLIENTE")
+    imp = ["(sin cambio)"] + datos.listar_catalogo("IMPORTADOR")
     aas = ["(sin cambio)"] + datos.listar_catalogo("AA")
-    regimenes = ["(sin cambio)"] + datos.listar_catalogo("REGIMEN")
-    detalles = ["(sin cambio)"] + datos.listar_catalogo("DETALLE")
+    regs = ["(sin cambio)"] + datos.listar_catalogo("REGIMEN")
+    dets = ["(sin cambio)"] + datos.listar_catalogo("DETALLE")
+    t3s = ["(sin cambio)"] + datos.listar_catalogo("T3")
 
-    c1, c2, c3 = st.columns(3)
-    nuevo_cliente = c1.selectbox("CLIENTE", clientes, key=f"ed_cli_{ct['id']}")
-    nuevo_imp = c2.selectbox("IMPORTADOR", importadores, key=f"ed_imp_{ct['id']}")
-    nuevo_aa = c3.selectbox("AGENTE ADUANAL", aas, key=f"ed_aa_{ct['id']}")
-
-    c4, c5, c6 = st.columns(3)
-    nueva_ref = c4.text_input("REFERENCIA", value=ct.get("referencia") or "", key=f"ed_ref_{ct['id']}")
-    nuevo_ped = c5.text_input("PEDIMENTO", value=ct.get("pedimento") or "", key=f"ed_ped_{ct['id']}")
-    nueva_eta = c6.text_input("ETA", value=ct.get("eta") or "", key=f"ed_eta_{ct['id']}")
-
-    c7, c8, c9 = st.columns(3)
-    nuevo_reg = c7.selectbox("REGIMEN", regimenes, key=f"ed_reg_{ct['id']}")
-    nuevo_det = c8.selectbox("DETALLE", detalles, key=f"ed_det_{ct['id']}")
-    nueva_fpago = c9.text_input("FECHA DE PAGO", value=ct.get("fecha_pago") or "", key=f"ed_fp_{ct['id']}")
-
-    nuevo_t3 = st.selectbox("MODULO T3", ["(sin cambio)"] + datos.listar_catalogo("T3"), key=f"ed_t3_{ct['id']}")
-    nuevas_obs = st.text_area("OBSERVACIONES", value=ct.get("observaciones") or "", key=f"ed_obs_{ct['id']}")
+    # Fila 1: cliente, importador, agente
+    r1 = st.columns(3)
+    n_cli = r1[0].selectbox("CLIENTE", cli, key=f"ed_cli_{ct['id']}")
+    n_imp = r1[1].selectbox("IMPORTADOR", imp, key=f"ed_imp_{ct['id']}")
+    n_aa = r1[2].selectbox("AGENTE ADUANAL", aas, key=f"ed_aa_{ct['id']}")
+    # Fila 2: referencia, pedimento, ETA
+    r2 = st.columns(3)
+    n_ref = r2[0].text_input("REFERENCIA", value=ct.get("referencia") or "", key=f"ed_ref_{ct['id']}")
+    n_ped = r2[1].text_input("PEDIMENTO", value=ct.get("pedimento") or "", key=f"ed_ped_{ct['id']}")
+    n_eta = _campo_fecha("ETA", ct.get("eta"), f"ed_eta_{ct['id']}")
+    # Fila 3: regimen, detalle, fecha pago
+    r3 = st.columns(3)
+    n_reg = r3[0].selectbox("REGIMEN", regs, key=f"ed_reg_{ct['id']}")
+    n_det = r3[1].selectbox("DETALLE", dets, key=f"ed_det_{ct['id']}")
+    n_fp = r3[2].text_input("FECHA DE PAGO", value=ct.get("fecha_pago") or "",
+                            placeholder="dd/mm/yyyy", max_chars=10, key=f"ed_fp_{ct['id']}")
+    # Fila 4: T3, observaciones
+    n_t3 = st.selectbox("MODULO T3", t3s, key=f"ed_t3_{ct['id']}")
+    n_obs = st.text_area("OBSERVACIONES", value=ct.get("observaciones") or "", key=f"ed_obs_{ct['id']}")
 
     if st.button("Guardar cambios", type="primary", key=f"ed_save_{ct['id']}"):
-        cambios = []
-        def aplicar(campo, valor, normaliza=True):
-            if valor and valor != "(sin cambio)":
-                v = reglas.normalizar_texto(valor) if normaliza else valor
-                datos.actualizar_campo_contenedor(ct["id"], campo, v, actor)
-                cambios.append(campo)
-        aplicar("cliente", nuevo_cliente)
-        aplicar("importador", nuevo_imp)
-        aplicar("aa", nuevo_aa)
-        aplicar("referencia", nueva_ref)
-        aplicar("pedimento", nuevo_ped)
-        aplicar("eta", nueva_eta)
-        aplicar("regimen", nuevo_reg)
-        aplicar("detalle", nuevo_det)
-        aplicar("fecha_pago", nueva_fpago)
-        aplicar("modulo_t3", nuevo_t3)
-        aplicar("observaciones", nuevas_obs)
-        st.success(f"Guardado ({len(cambios)} campos).")
+        # validar fechas
+        ok_eta, msg_eta = reglas.validar_fecha(n_eta)
+        ok_fp, msg_fp = reglas.validar_fecha(n_fp)
+        if not ok_eta:
+            st.error(f"ETA: {msg_eta}"); return
+        if not ok_fp:
+            st.error(f"FECHA DE PAGO: {msg_fp}"); return
+        # validar referencia/pedimento si se llenaron
+        if n_ref.strip():
+            okr, vr = reglas.validar_referencia(n_ref)
+            if not okr: st.error(f"REFERENCIA: {vr}"); return
+            datos.actualizar_campo_contenedor(ct["id"], "referencia", vr, actor)
+        if n_ped.strip():
+            okp, vp = reglas.validar_pedimento(n_ped)
+            if not okp: st.error(f"PEDIMENTO: {vp}"); return
+            datos.actualizar_campo_contenedor(ct["id"], "pedimento", vp, actor)
+        for campo, val in [("cliente",n_cli),("importador",n_imp),("aa",n_aa),
+                           ("regimen",n_reg),("detalle",n_det),("modulo_t3",n_t3)]:
+            if val and val != "(sin cambio)":
+                datos.actualizar_campo_contenedor(ct["id"], campo, reglas.normalizar_texto(val), actor)
+        if n_eta.strip(): datos.actualizar_campo_contenedor(ct["id"], "eta", n_eta.strip(), actor)
+        if n_fp.strip(): datos.actualizar_campo_contenedor(ct["id"], "fecha_pago", n_fp.strip(), actor)
+        if n_obs.strip(): datos.actualizar_campo_contenedor(ct["id"], "observaciones", reglas.normalizar_texto(n_obs), actor)
+        st.success("Guardado.")
         st.session_state[f"editando_{ct['id']}"] = False
         st.rerun()
     if st.button("Cerrar", key=f"ed_close_{ct['id']}"):
@@ -240,84 +255,138 @@ def panel_aduana(aduana_key, aduana_nombre):
     es_admin = st.session_state.usuario["rol"] == "Administrador"
     st.subheader(f"CONTENEDORES · {aduana_nombre.upper()}")
 
-    # --- Alta mínima ---
-    with st.expander("➕ DAR DE ALTA UN CONTENEDOR", expanded=False):
-        c1, c2 = st.columns(2)
-        cont_raw = c1.text_input("NÚMERO DE CONTENEDOR", max_chars=11,
-                                 key=f"alta_cont_{aduana_key}",
-                                 help="11 caracteres: 4 letras + 7 dígitos")
+    # Limpiar campos tras un alta exitosa (cada registro va en blanco)
+    flag = f"limpiar_alta_{aduana_key}"
+    if st.session_state.get(flag):
+        for k in [f"alta_cont_{aduana_key}", f"alta_clinew_{aduana_key}",
+                  f"alta_ref_{aduana_key}", f"alta_ped_{aduana_key}"]:
+            if k in st.session_state: st.session_state[k] = ""
+        st.session_state[flag] = False
+
+    with st.expander("➕ DAR DE ALTA UN CONTENEDOR", expanded=True):
         clientes_cat = datos.listar_catalogo("CLIENTE")
-        cliente_sel = c2.selectbox("CLIENTE", ["(escribir nuevo)"] + clientes_cat,
-                                   key=f"alta_clisel_{aduana_key}")
+        aas_cat = datos.listar_catalogo("AA")
+
+        # Fila 1: contenedor, cliente
+        r1 = st.columns(2)
+        cont_raw = r1[0].text_input("NÚMERO DE CONTENEDOR", max_chars=11,
+                                    key=f"alta_cont_{aduana_key}",
+                                    help="11 caracteres: 4 letras + 7 dígitos")
+        if es_admin:
+            cliente_sel = r1[1].selectbox("CLIENTE", ["(escribir nuevo)"] + clientes_cat,
+                                          key=f"alta_clisel_{aduana_key}")
+        else:
+            # No-admin: solo seleccionar de la lista, no escribir
+            cliente_sel = r1[1].selectbox("CLIENTE", ["(seleccionar)"] + clientes_cat,
+                                          key=f"alta_clisel_{aduana_key}")
         cliente_nuevo = ""
-        if cliente_sel == "(escribir nuevo)":
+        if es_admin and cliente_sel == "(escribir nuevo)":
             cliente_nuevo = st.text_input("Nuevo cliente", key=f"alta_clinew_{aduana_key}")
+
+        # Fila 2: agente aduanal, referencia, pedimento
+        r2 = st.columns(3)
+        aa_sel = r2[0].selectbox("AGENTE ADUANAL", ["(opcional)"] + aas_cat, key=f"alta_aa_{aduana_key}")
+        ref_raw = r2[1].text_input("REFERENCIA", key=f"alta_ref_{aduana_key}")
+        ped_raw = r2[2].text_input("PEDIMENTO", key=f"alta_ped_{aduana_key}")
+
         if st.button("DAR DE ALTA", type="primary", key=f"alta_btn_{aduana_key}"):
             limpio = reglas.limpiar_contenedor(cont_raw)
             ok, msg = reglas.validar_contenedor(cont_raw)
-            cliente_final = cliente_nuevo if cliente_sel == "(escribir nuevo)" else cliente_sel
+            if cliente_sel in ("(escribir nuevo)",) and es_admin:
+                cliente_final = cliente_nuevo
+            elif cliente_sel in ("(seleccionar)", "(escribir nuevo)"):
+                cliente_final = ""
+            else:
+                cliente_final = cliente_sel
             cliente_norm = reglas.normalizar_texto(cliente_final)
+            aa_final = "" if aa_sel == "(opcional)" else aa_sel
+
             if not cliente_norm:
                 st.warning("El cliente es obligatorio.")
             elif not ok:
                 st.error(f"Contenedor inválido: {msg}")
             else:
+                # Validar referencia/pedimento si vienen
+                ref_val = ""; ped_val = ""
+                if ref_raw.strip():
+                    okr, ref_val = reglas.validar_referencia(ref_raw)
+                    if not okr: st.error(f"REFERENCIA: {ref_val}"); return
+                if ped_raw.strip():
+                    okp, ped_val = reglas.validar_pedimento(ped_raw)
+                    if not okp: st.error(f"PEDIMENTO: {ped_val}"); return
+
+                # Regla duplicado contenedor (ventana 3 meses)
                 previo = datos.buscar_contenedor_existente(limpio)
                 clasif = "NUEVO"
                 if previo:
                     m = reglas.meses_entre(previo.get("creado"))
                     clasif = reglas.evaluar_duplicado(m)
-                if clasif == "DUDOSO":
-                    st.error(f"⚠️ El contenedor {limpio} ya existe con menos de 3 meses "
-                             f"(consecutivo {previo.get('consecutivo')}). "
-                             f"Posible duplicado. Requiere autorización del administrador.")
+
+                # Regla duplicado pedimento (mismo AA + pedimento)
+                ped_dup = datos.buscar_pedimento_duplicado(aa_final, ped_val) if ped_val else None
+
+                hay_dup = clasif == "DUDOSO" or ped_dup is not None
+                if hay_dup and not es_admin:
+                    avisos = []
+                    if clasif == "DUDOSO":
+                        avisos.append(f"contenedor ya existe (menos de 3 meses, {previo.get('consecutivo')})")
+                    if ped_dup:
+                        avisos.append(f"pedimento ya existe con ese agente ({ped_dup.get('consecutivo')})")
+                    st.error("⚠️ DUPLICADO: " + "; ".join(avisos) +
+                             ". No puedes dar de alta. Requiere autorización del administrador.")
                 else:
-                    # Si el cliente es nuevo, agregarlo al catálogo
-                    if cliente_sel == "(escribir nuevo)" and cliente_norm not in clientes_cat:
-                        datos.agregar_valor_catalogo("CLIENTE", cliente_norm, actor)
+                    # crear (admin puede forzar)
                     anio = datetime.now().year
                     folio = datos.ultimo_folio(aduana_key, anio) + 1
                     consec = reglas.generar_consecutivo(aduana_key, anio, folio - 1)
-                    datos.crear_contenedor(aduana_key, limpio, cliente_norm,
-                                           consec, anio, folio, actor)
-                    if clasif == "REINGRESO":
-                        st.success(f"Reingreso registrado: {consec} · {limpio} (+3 meses).")
+                    if hay_dup and es_admin:
+                        datos.crear_contenedor_forzado(aduana_key, limpio, cliente_norm,
+                            consec, anio, folio, actor, "alta duplicada autorizada por admin")
+                        st.warning(f"Alta DUPLICADA autorizada: {consec} · {limpio}")
                     else:
-                        st.success(f"Contenedor dado de alta: {consec} · {limpio}")
+                        datos.crear_contenedor(aduana_key, limpio, cliente_norm,
+                                               consec, anio, folio, actor)
+                        if clasif == "REINGRESO":
+                            st.success(f"Reingreso: {consec} · {limpio} (+3 meses).")
+                        else:
+                            st.success(f"Alta: {consec} · {limpio}")
+                    # completar AA, ref, ped si vienen
+                    nuevo = datos.buscar_contenedor_existente(limpio)
+                    if nuevo:
+                        if aa_final: datos.actualizar_campo_contenedor(nuevo["id"],"aa",aa_final,actor)
+                        if ref_val: datos.actualizar_campo_contenedor(nuevo["id"],"referencia",ref_val,actor)
+                        if ped_val: datos.actualizar_campo_contenedor(nuevo["id"],"pedimento",ped_val,actor)
+                    st.session_state[flag] = True
                     st.rerun()
 
-    # --- Lista de contenedores (colapsada, paginada para no cargar todo) ---
+    # Lista colapsada y paginada
     total = datos.contar_contenedores(aduana_key)
     with st.expander(f"📋 VER LISTA DE CONTENEDORES ({total})", expanded=False):
         if total == 0:
-            st.info("Aún no hay contenedores capturados en esta aduana.")
+            st.info("Aún no hay contenedores capturados.")
             return
         POR_PAGINA = 20
         npag = (total - 1) // POR_PAGINA + 1
-        pag = st.number_input("Página", min_value=1, max_value=npag, value=1,
-                              key=f"pag_{aduana_key}")
-        st.caption(f"Mostrando página {pag} de {npag} ({POR_PAGINA} por página)")
-        conts = datos.listar_contenedores(aduana_key, limite=POR_PAGINA,
-                                          offset=(pag - 1) * POR_PAGINA)
+        pag = st.number_input("Página", min_value=1, max_value=npag, value=1, key=f"pag_{aduana_key}")
+        conts = datos.listar_contenedores(aduana_key, limite=POR_PAGINA, offset=(pag-1)*POR_PAGINA)
         for ct in conts:
             with st.container(border=True):
-                cols = st.columns([2, 2, 1.4, 0.6, 0.6]) if es_admin else st.columns([2, 2, 1.4])
+                cols = st.columns([2,2,1.4,0.6,0.6]) if es_admin else st.columns([2,2,1.4])
                 cols[0].markdown(f"**{ct['consecutivo']}**  \n`{ct['contenedor']}`")
                 cols[1].markdown(f"CLIENTE: {ct.get('cliente') or '—'}  \nETA: {ct.get('eta') or '—'}")
-                estatus_actual = ct.get("estatus") or "CAPTURA"
-                nuevo_est = cols[2].selectbox("ESTATUS", reglas.ESTATUS,
-                    index=reglas.ESTATUS.index(estatus_actual) if estatus_actual in reglas.ESTATUS else 0,
+                est_act = ct.get("estatus") or "CAPTURA"
+                n_est = cols[2].selectbox("ESTATUS", reglas.ESTATUS,
+                    index=reglas.ESTATUS.index(est_act) if est_act in reglas.ESTATUS else 0,
                     key=f"est_{ct['id']}")
-                if nuevo_est != estatus_actual:
-                    datos.actualizar_campo_contenedor(ct["id"], "estatus", nuevo_est, actor)
+                if n_est != est_act:
+                    datos.actualizar_campo_contenedor(ct["id"], "estatus", n_est, actor)
                     st.rerun()
                 if es_admin:
                     if cols[3].button("✏️", key=f"edit_{ct['id']}", help="Editar todo"):
                         st.session_state[f"editando_{ct['id']}"] = True
-                    if cols[4].button("🗑️", key=f"del_{ct['id']}", help="Eliminar (solo admin)"):
+                    if cols[4].button("🗑️", key=f"del_{ct['id']}", help="Eliminar"):
                         datos.eliminar_contenedor(ct["id"], actor)
                         st.rerun()
-                # Ficha de edición desplegada
                 if es_admin and st.session_state.get(f"editando_{ct['id']}"):
                     _ficha_edicion(ct, actor, es_admin)
 

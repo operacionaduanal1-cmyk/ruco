@@ -92,3 +92,47 @@ def normalizar_texto(valor):
     # Restaurar Ñ
     s = s.replace("\x00", "Ñ")
     return s
+
+
+# --- Limpieza de referencia y pedimento (solo trim al final, no en medio) ---
+def limpiar_referencia(valor):
+    """Alfanumérico. Quita espacios solo al final. Mayúsculas."""
+    if valor is None:
+        return ""
+    return str(valor).rstrip().upper()
+
+def validar_referencia(valor):
+    v = limpiar_referencia(valor)
+    if not v:
+        return False, "Vacío"
+    if not v.replace(" ", "").isalnum():
+        return False, "Solo letras y números."
+    return True, v
+
+def limpiar_pedimento(valor):
+    """Numérico. Conserva ceros. Quita espacios solo al final."""
+    if valor is None:
+        return ""
+    return str(valor).rstrip()
+
+def validar_pedimento(valor):
+    v = limpiar_pedimento(valor)
+    if not v:
+        return False, "Vacío"
+    if not v.isdigit():
+        return False, "Solo números."
+    return True, v
+
+# --- Fecha dd/mm/yyyy ---
+def validar_fecha(valor):
+    """Acepta dd/mm/yyyy. Devuelve (ok, valor_o_mensaje)."""
+    if not valor or not str(valor).strip():
+        return True, ""  # fecha vacía permitida
+    import re as _re
+    v = str(valor).strip()
+    if not _re.match(r"^\d{2}/\d{2}/\d{4}$", v):
+        return False, "Formato dd/mm/yyyy"
+    d, m, a = v.split("/")
+    if not (1 <= int(d) <= 31 and 1 <= int(m) <= 12):
+        return False, "Fecha inválida"
+    return True, v

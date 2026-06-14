@@ -449,6 +449,8 @@ def panel_aduana(aduana_key, aduana_nombre):
 
 # ---------- BÚSQUEDA GLOBAL ----------
 def panel_busqueda():
+    st.subheader("🔎 BUSCAR EN TODAS LAS ADUANAS")
+    st.caption("Busca por contenedor, cliente o estatus. Muestra resultados de Pantaco, Manzanillo y Lázaro.")
     st.markdown("<div style='margin:0.5rem 0 1rem'></div>", unsafe_allow_html=True)
     c1, c2 = st.columns([3, 1])
     tipo = c2.selectbox("Tipo", ["Contenedor", "Cliente", "Estatus"], key="tipo_busqueda",
@@ -582,14 +584,16 @@ else:
     header()
     u = st.session_state.usuario
 
-    # Barra de búsqueda debajo del logo
-    panel_busqueda()
-
     if u["rol"] == "Administrador":
-        t_pan, t1, t_base, t2 = st.tabs(["🚛 Pantaco", "👥 Usuarios", "🗂️ Base", "🕓 Historial"])
+        t_busc, t_pan, t1, t_base, t2 = st.tabs(
+            ["🔎 Buscar", "🚛 Pantaco", "👥 Usuarios", "🗂️ Base", "🕓 Historial"])
+        with t_busc: panel_busqueda()
         with t_pan: panel_aduana("PANTACO", "Pantaco")
         with t1: panel_usuarios()
         with t_base: panel_base()
         with t2: panel_historial()
     else:
-        st.info(f"Hola {u['nombre']}. Tu panel de **{u['rol']}** se construirá en las siguientes fases.")
+        # Los demás roles: pueden buscar (ver todo lo pendiente) y su panel de aduana
+        t_busc, t_pan = st.tabs(["🔎 Buscar", "🚛 Pantaco"])
+        with t_busc: panel_busqueda()
+        with t_pan: panel_aduana("PANTACO", "Pantaco")

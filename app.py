@@ -410,16 +410,22 @@ def _ficha_edicion(ct, actor, es_admin):
     r4 = st.columns(3)
     with r4[0]:
         # MÓDULO T3 como semáforo de focos. Guarda texto: VERDE / ROJO / BLOQUEADO
-        T3_OPCIONES = ["⚪ Sin definir", "🟢 VERDE", "🔴 ROJO", "🔵 BLOQUEADO"]
-        T3_MAP = {"⚪ Sin definir": "", "🟢 VERDE": "VERDE", "🔴 ROJO": "ROJO", "🔵 BLOQUEADO": "BLOQUEADO"}
-        T3_INV = {"": "⚪ Sin definir", "VERDE": "🟢 VERDE", "ROJO": "🔴 ROJO", "BLOQUEADO": "🔵 BLOQUEADO"}
+        T3_OPCIONES = ["🟢 VERDE", "🔴 ROJO", "🔵 BLOQUEADO"]
+        T3_MAP = {"🟢 VERDE": "VERDE", "🔴 ROJO": "ROJO", "🔵 BLOQUEADO": "BLOQUEADO"}
+        T3_INV = {"VERDE": "🟢 VERDE", "ROJO": "🔴 ROJO", "BLOQUEADO": "🔵 BLOQUEADO"}
         actual_t3 = (ct.get("modulo_t3") or "").strip().upper()
-        idx_t3 = list(T3_OPCIONES).index(T3_INV.get(actual_t3, "⚪ Sin definir"))
-        if puede("modulo_t3"):
+        ya_tiene_t3 = actual_t3 in T3_INV
+        # El ejecutivo puede ponerlo solo si está vacío. Si ya tiene, solo el admin lo cambia.
+        puede_editar_t3 = es_admin or (puede("modulo_t3") and not ya_tiene_t3)
+        if puede_editar_t3:
+            idx_t3 = T3_OPCIONES.index(T3_INV[actual_t3]) if ya_tiene_t3 else 0
             sel_t3 = st.radio("MODULO T3", T3_OPCIONES, index=idx_t3, horizontal=True, key=f"ed_t3_{ct['id']}")
             n_t3 = T3_MAP[sel_t3]
         else:
-            mostrar_solo_lectura("MODULO T3", T3_INV.get(actual_t3, "⚪ Sin definir"))
+            # Solo lectura (ya tiene foco y no es admin, o no tiene permiso)
+            mostrar_solo_lectura("MODULO T3", T3_INV.get(actual_t3, "—"))
+            if puede("modulo_t3") and ya_tiene_t3 and not es_admin:
+                st.caption("Ya asignado. Solo el administrador puede cambiarlo.")
             n_t3 = "(sin cambio)"
     with r4[1]:
         if puede("fecha_pago"): n_fp = st.text_input("FECHA DE PAGO", value=ct.get("fecha_pago") or "", placeholder="dd/mm/yyyy", max_chars=10, key=f"ed_fp_{ct['id']}")
@@ -676,7 +682,21 @@ def panel_aduana(aduana_key, aduana_nombre):
                         f"<div style='font-size:0.72rem;color:#9aa0a6;margin-top:-8px'>"
                         f"REF: {ct.get('referencia') or '—'} · PED: {ct.get('pedimento') or '—'}</div>",
                         unsafe_allow_html=True)
+                    # Foco T3 (semáforo): verde/rojo/azul, apagado si no tiene
+                    _t3 = (ct.get("modulo_t3") or "").strip().upper()
+                    _foco = {"VERDE": ("#3ddc84", "VERDE"), "ROJO": ("#ff6b6b", "ROJO"),
+                             "BLOQUEADO": ("#4a90d9", "BLOQUEADO")}.get(_t3)
+                    if _foco:
+                        _fc, _ft = _foco
+                        _t3_html = (f"<span style='display:inline-block;width:11px;height:11px;border-radius:50%;"
+                                    f"background:{_fc};box-shadow:0 0 6px {_fc};margin-right:6px;vertical-align:middle'></span>"
+                                    f"<span style='font-size:0.72rem;color:#cfcfcf'>T3: {_ft}</span>")
+                    else:
+                        _t3_html = ("<span style='display:inline-block;width:11px;height:11px;border-radius:50%;"
+                                    "background:#3a3f47;margin-right:6px;vertical-align:middle'></span>"
+                                    "<span style='font-size:0.72rem;color:#6b7280'>T3: —</span>")
                     cols[1].markdown(f"CLIENTE: {ct.get('cliente') or '—'}  \nETA: {ct.get('eta') or '—'}")
+                    cols[1].markdown(_t3_html, unsafe_allow_html=True)
                     # Estatus pintado (vacío = SIN ESTATUS, en gris)
                     est_raw = (ct.get("estatus") or "").strip()
                     est_act = est_raw if est_raw else "SIN ESTATUS"

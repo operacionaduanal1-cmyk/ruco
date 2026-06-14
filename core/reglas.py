@@ -74,3 +74,20 @@ def meses_entre(fecha_iso_anterior, fecha_iso_ahora=None):
         return None
     ahora = datetime.fromisoformat(fecha_iso_ahora) if fecha_iso_ahora else datetime.now()
     return (ahora.year - ant.year) * 12 + (ahora.month - ant.month)
+
+
+# --- Normalizador de texto para campos ---
+def normalizar_texto(valor):
+    """Mayúsculas, sin acentos, conserva Ñ. Para todo lo que se escribe en campos."""
+    if valor is None:
+        return ""
+    import unicodedata
+    s = str(valor).upper().strip()
+    # Proteger la Ñ antes de quitar acentos
+    s = s.replace("Ñ", "\x00")
+    # Quitar acentos
+    s = unicodedata.normalize("NFD", s)
+    s = "".join(c for c in s if unicodedata.category(c) != "Mn")
+    # Restaurar Ñ
+    s = s.replace("\x00", "Ñ")
+    return s

@@ -53,11 +53,11 @@ h1,h2,h3,h4,h5,h6 { color: #FFFFFF; }
 /* Selecciones / hover en gris */
 .stSelectbox div[data-baseweb="select"]:hover > div,
 li:hover, [role="option"]:hover { background-color: #2a2a2a !important; }
-/* Botón primario ambar */
+/* Botón primario verde tenue */
 div.stButton > button[kind="primary"] {
-  background: #E8A33D; color:#000000; border:none; font-weight:700;
+  background: #3f9d6b; color:#FFFFFF; border:none; font-weight:700;
 }
-div.stButton > button[kind="primary"]:hover { background:#f0b658; }
+div.stButton > button[kind="primary"]:hover { background:#4caf7d; }
 /* Botones secundarios oscuros */
 div.stButton > button { background:#1a1a1a; color:#FFFFFF; border:1px solid #333; }
 div.stButton > button:hover { background:#2a2a2a; border-color:#555; }
@@ -176,18 +176,38 @@ datos.inicializar_contenedores()
 
 def panel_aduana(aduana_key, aduana_nombre):
     actor = st.session_state.usuario["usuario"]
-    st.subheader(f"Contenedores · {aduana_nombre}")
+    es_admin = st.session_state.usuario["rol"] == "Administrador"
+    st.subheader(f"CONTENEDORES · {aduana_nombre.upper()}")
+
+    # Forzar mayúsculas y límite de 11 en el campo de contenedor (JS en el navegador)
+    st.markdown("""
+    <script>
+    const aplicar = () => {
+      const inputs = window.parent.document.querySelectorAll('input');
+      inputs.forEach(inp => {
+        if(inp.dataset.rucoCont) {
+          inp.setAttribute('maxlength','11');
+          inp.value = inp.value.toUpperCase().replace(/\\s/g,'');
+        }
+      });
+    };
+    setInterval(aplicar, 300);
+    </script>
+    """, unsafe_allow_html=True)
 
     # --- Alta mínima ---
-    with st.expander("➕ Dar de alta un contenedor", expanded=False):
+    with st.expander("➕ DAR DE ALTA UN CONTENEDOR", expanded=False):
         c1, c2 = st.columns(2)
-        cont_raw = c1.text_input("Número de contenedor", key=f"alta_cont_{aduana_key}")
-        cliente = c2.text_input("Cliente", key=f"alta_cli_{aduana_key}")
-        if st.button("Dar de alta", type="primary", key=f"alta_btn_{aduana_key}"):
+        cont_raw = c1.text_input("NÚMERO DE CONTENEDOR", max_chars=11,
+                                 key=f"alta_cont_{aduana_key}",
+                                 help="11 caracteres: 4 letras + 7 dígitos")
+        cliente = c2.text_input("CLIENTE", key=f"alta_cli_{aduana_key}")
+        if st.button("DAR DE ALTA", type="primary", key=f"alta_btn_{aduana_key}"):
             # Regla de oro 1: limpiar y validar
             limpio = reglas.limpiar_contenedor(cont_raw)
             ok, msg = reglas.validar_contenedor(cont_raw)
-            if not cliente.strip():
+            cliente_norm = reglas.normalizar_texto(cliente)
+            if not cliente_norm:
                 st.warning("El cliente es obligatorio.")
             elif not ok:
                 st.error(f"Contenedor inválido: {msg}")
@@ -203,15 +223,13 @@ def panel_aduana(aduana_key, aduana_nombre):
                              f"(consecutivo {previo.get('consecutivo')}). "
                              f"Posible duplicado. Requiere autorización del administrador.")
                 else:
-                    # Regla de oro 2: consecutivo por año real
                     anio = datetime.now().year
                     folio = datos.ultimo_folio(aduana_key, anio) + 1
                     consec = reglas.generar_consecutivo(aduana_key, anio, folio - 1)
-                    datos.crear_contenedor(aduana_key, limpio, cliente.strip(),
+                    datos.crear_contenedor(aduana_key, limpio, cliente_norm,
                                            consec, anio, folio, actor)
                     if clasif == "REINGRESO":
-                        st.success(f"Reingreso registrado: {consec} · {limpio} "
-                                   f"(ya había venido antes, +3 meses).")
+                        st.success(f"Reingreso registrado: {consec} · {limpio} (+3 meses).")
                     else:
                         st.success(f"Contenedor dado de alta: {consec} · {limpio}")
                     st.rerun()
@@ -221,30 +239,80 @@ def panel_aduana(aduana_key, aduana_nombre):
     if not conts:
         st.info("Aún no hay contenedores capturados en esta aduana.")
         return
-    st.markdown(f"##### {len(conts)} contenedores")
+    st.markdown(f"##### {len(conts)} CONTENEDORES")
     for ct in conts:
         with st.container(border=True):
-            c1, c2, c3 = st.columns([2, 2, 1.2])
-            c1.markdown(f"**{ct['consecutivo']}**  \n`{ct['contenedor']}`")
-            c2.markdown(f"Cliente: {ct.get('cliente') or '—'}  \nETA: {ct.get('eta') or '—'}")
+            cols = st.columns([2, 2, 1.4, 0.8]) if es_admin else st.columns([2, 2, 1.4])
+            cols[0].markdown(f"**{ct['consecutivo']}**  \n`{ct['contenedor']}`")
+            cols[1].markdown(f"CLIENTE: {ct.get('cliente') or '—'}  \nETA: {ct.get('eta') or '—'}")
             estatus_actual = ct.get("estatus") or "CAPTURA"
-            nuevo_est = c3.selectbox("Estatus", reglas.ESTATUS,
-                                     index=reglas.ESTATUS.index(estatus_actual) if estatus_actual in reglas.ESTATUS else 0,
-                                     key=f"est_{ct['id']}")
+            nuevo_est = cols[2].selectbox("ESTATUS", reglas.ESTATUS,
+                index=reglas.ESTATUS.index(estatus_actual) if estatus_actual in reglas.ESTATUS else 0,
+                key=f"est_{ct['id']}")
             if nuevo_est != estatus_actual:
                 datos.actualizar_campo_contenedor(ct["id"], "estatus", nuevo_est, actor)
                 st.rerun()
+            # Solo admin ve eliminar
+            if es_admin:
+                if cols[3].button("🗑️", key=f"del_{ct['id']}", help="Eliminar (solo admin)"):
+                    datos.eliminar_contenedor(ct["id"], actor)
+                    st.rerun()
+
+
+# ---------- BÚSQUEDA GLOBAL ----------
+def panel_busqueda():
+    st.markdown("<div style='margin:0.5rem 0 1rem'></div>", unsafe_allow_html=True)
+    c1, c2 = st.columns([3, 1])
+    termino = c1.text_input("🔎 BUSCAR", key="busqueda_global",
+                            placeholder="Número de contenedor o nombre de cliente",
+                            label_visibility="collapsed")
+    tipo = c2.selectbox("Tipo", ["Contenedor", "Cliente"], key="tipo_busqueda",
+                        label_visibility="collapsed")
+    if not termino.strip():
+        return
+
+    if tipo == "Contenedor":
+        limpio = reglas.limpiar_contenedor(termino)
+        resultados = datos.buscar_por_contenedor(limpio)
+    else:
+        # Filtros adicionales para búsqueda por cliente
+        fc1, fc2 = st.columns(2)
+        f_aduana = fc1.selectbox("Filtrar aduana", ["TODAS", "PANTACO", "MANZANILLO", "LAZARO"],
+                                 key="f_aduana")
+        f_estatus = fc2.selectbox("Filtrar estatus", ["TODOS"] + reglas.ESTATUS, key="f_estatus")
+        resultados = datos.buscar_por_cliente(
+            reglas.normalizar_texto(termino),
+            aduana=None if f_aduana == "TODAS" else f_aduana,
+            estatus=None if f_estatus == "TODOS" else f_estatus)
+
+    if not resultados:
+        st.info("Sin resultados.")
+        return
+    st.caption(f"{len(resultados)} resultado(s)")
+    nombres_aduana = {"PANTACO": "Pantaco", "MANZANILLO": "Manzanillo", "LAZARO": "Lázaro"}
+    for r in resultados:
+        with st.container(border=True):
+            a, b, c = st.columns([1.5, 2, 1.5])
+            a.markdown(f"**{r['consecutivo']}**  \n`{r['contenedor']}`")
+            b.markdown(f"CLIENTE: {r.get('cliente') or '—'}  \n"
+                       f"ADUANA: {nombres_aduana.get(r['aduana'], r['aduana'])}")
+            c.markdown(f"ESTATUS: **{r.get('estatus') or '—'}**  \nETA: {r.get('eta') or '—'}")
 
 
 # ---------- RUTEO ----------
 if st.session_state.usuario is None:
     pantalla_login()
 else:
+    # Botón Salir arriba a la derecha
+    top = st.columns([6, 1])
+    with top[1]:
+        if st.button("Salir ⏻"):
+            st.session_state.usuario = None; st.rerun()
     header()
     u = st.session_state.usuario
-    cols = st.columns([6, 1])
-    if cols[1].button("Salir"):
-        st.session_state.usuario = None; st.rerun()
+
+    # Barra de búsqueda debajo del logo
+    panel_busqueda()
 
     if u["rol"] == "Administrador":
         t_pan, t1, t2 = st.tabs(["📦 Pantaco", "👥 Usuarios", "🕓 Historial"])

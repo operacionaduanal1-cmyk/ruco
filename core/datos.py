@@ -225,3 +225,34 @@ def actualizar_campo_contenedor(cid, campo, valor_nuevo, actor):
     _exec("""INSERT INTO historial (tabla, registro_id, usuario, campo, valor_anterior, valor_nuevo, fecha)
              VALUES ('contenedores',?,?,?,?,?,?)""",
           (cid, actor, campo, str(valor_anterior or ""), str(valor_nuevo), datetime.now().isoformat()))
+
+
+# ============================================================
+# BÚSQUEDA
+# ============================================================
+def buscar_por_contenedor(contenedor_limpio):
+    """Trae TODOS los registros de ese contenedor (puede estar en varias aduanas)."""
+    filas, _ = _exec(
+        "SELECT * FROM contenedores WHERE contenedor=? AND activo=1 ORDER BY aduana, id DESC",
+        (contenedor_limpio,))
+    return filas
+
+def buscar_por_cliente(cliente_texto, aduana=None, estatus=None):
+    """Trae todos los contenedores de un cliente, con filtros opcionales."""
+    sql = "SELECT * FROM contenedores WHERE activo=1 AND cliente LIKE ?"
+    params = [f"%{cliente_texto}%"]
+    if aduana:
+        sql += " AND aduana=?"; params.append(aduana)
+    if estatus:
+        sql += " AND estatus=?"; params.append(estatus)
+    sql += " ORDER BY aduana, id DESC"
+    filas, _ = _exec(sql, tuple(params))
+    return filas
+
+def eliminar_contenedor(cid, actor):
+    """Baja lógica: nunca borra de verdad, marca inactivo. Solo admin."""
+    from datetime import datetime
+    _exec("UPDATE contenedores SET activo=0 WHERE id=?", (cid,))
+    _exec("""INSERT INTO historial (tabla, registro_id, usuario, campo, valor_anterior, valor_nuevo, fecha)
+             VALUES ('contenedores',?,?,?,?,?,?)""",
+          (cid, actor, "eliminado", "1", "0", datetime.now().isoformat()))

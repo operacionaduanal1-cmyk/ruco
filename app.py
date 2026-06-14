@@ -417,18 +417,32 @@ def _ficha_edicion(ct, actor, es_admin):
     # Observaciones acumulativas (historial con autor, no se borra)
     obs_historial = ct.get("observaciones") or ""
     st.markdown("<div style='font-size:0.72rem;color:#9aa0a6;margin-top:8px'>OBSERVACIONES</div>", unsafe_allow_html=True)
-    if obs_historial.strip():
-        st.markdown(
-            "<div style='background:#1a1d23;border:1px solid #2a2e35;border-radius:8px;"
-            "padding:10px;white-space:pre-wrap;color:#cfcfcf;font-size:0.85rem;max-height:220px;overflow-y:auto'>"
-            f"{obs_historial}</div>", unsafe_allow_html=True)
-    else:
-        st.caption("Sin observaciones todavía.")
     n_obs = ""
-    if puede("observaciones"):
-        n_obs = st.text_area("Agregar nueva observación (se anexa con tu nombre y la fecha)",
-                             value="", placeholder="Escribe aquí la nueva observación...",
-                             key=f"ed_obs_{ct['id']}")
+    obs_admin_edit = None
+    if es_admin:
+        # El admin ve y edita TODO el historial como campo de texto (puede borrar/modificar)
+        obs_admin_edit = st.text_area(
+            "Historial de observaciones (editable solo para ti)",
+            value=obs_historial,
+            height=160,
+            key=f"ed_obs_admin_{ct['id']}")
+        st.caption("Puedes corregir o borrar cualquier observación. Para agregar una nueva con tu nombre y fecha, usa el campo de abajo.")
+        n_obs = st.text_input("Agregar nueva observación (se anexa con tu nombre y la fecha)",
+                              value="", placeholder="Escribe aquí la nueva observación...",
+                              key=f"ed_obs_nueva_{ct['id']}")
+    else:
+        # Los demás ven el historial completo (con nombres y fechas) pero no lo editan
+        if obs_historial.strip():
+            st.markdown(
+                "<div style='background:#1a1d23;border:1px solid #2a2e35;border-radius:8px;"
+                "padding:10px;white-space:pre-wrap;color:#cfcfcf;font-size:0.85rem;max-height:220px;overflow-y:auto'>"
+                f"{obs_historial}</div>", unsafe_allow_html=True)
+        else:
+            st.caption("Sin observaciones todavía.")
+        if puede("observaciones"):
+            n_obs = st.text_area("Agregar nueva observación (se anexa con tu nombre y la fecha)",
+                                 value="", placeholder="Escribe aquí la nueva observación...",
+                                 key=f"ed_obs_{ct['id']}")
 
     # Si no puede editar NADA, avisar
     if not permitidos and not es_admin:
@@ -461,17 +475,29 @@ def _ficha_edicion(ct, actor, es_admin):
             datos.actualizar_campo_contenedor(ct["id"], "eta", n_eta.strip(), actor)
         if puede("fecha_pago") and n_fp != "(sin cambio)" and n_fp.strip() != (ct.get("fecha_pago") or "").strip():
             datos.actualizar_campo_contenedor(ct["id"], "fecha_pago", n_fp.strip(), actor)
-        if puede("observaciones") and n_obs.strip():
-            # Anexar observación con nombre del perfil y fecha/hora del sistema
+        # OBSERVACIONES
+        if es_admin:
+            # 1) Si el admin editó el historial completo, guardar esa versión
+            base_obs = obs_admin_edit if obs_admin_edit is not None else (ct.get("observaciones") or "")
+            if base_obs != (ct.get("observaciones") or ""):
+                datos.actualizar_campo_contenedor(ct["id"], "observaciones", base_obs, actor)
+            # 2) Si además escribió una nueva, anexarla con nombre y fecha
+            if n_obs.strip():
+                usr_actual = datos.obtener_usuario_por_username(actor)
+                nombre_perfil = usr_actual["nombre"] if usr_actual else actor
+                sello = datetime.now().strftime("%d/%m/%Y %H:%M")
+                nueva_obs = f"{nombre_perfil} - {reglas.normalizar_texto(n_obs)} - {sello}"
+                base_obs = base_obs.strip()
+                obs_final = (base_obs + "\n-----\n" + nueva_obs) if base_obs else nueva_obs
+                datos.actualizar_campo_contenedor(ct["id"], "observaciones", obs_final, actor)
+        elif puede("observaciones") and n_obs.strip():
+            # Los demás solo anexan (no pueden borrar ni modificar lo anterior)
             usr_actual = datos.obtener_usuario_por_username(actor)
             nombre_perfil = usr_actual["nombre"] if usr_actual else actor
             sello = datetime.now().strftime("%d/%m/%Y %H:%M")
             nueva_obs = f"{nombre_perfil} - {reglas.normalizar_texto(n_obs)} - {sello}"
             historial_prev = (ct.get("observaciones") or "").strip()
-            if historial_prev:
-                obs_final = historial_prev + "\n-----\n" + nueva_obs
-            else:
-                obs_final = nueva_obs
+            obs_final = (historial_prev + "\n-----\n" + nueva_obs) if historial_prev else nueva_obs
             datos.actualizar_campo_contenedor(ct["id"], "observaciones", obs_final, actor)
         st.session_state[f"msg_guardado_{ct['id']}"] = "✅ Cambios guardados."
         st.session_state[f"editando_{ct['id']}"] = False

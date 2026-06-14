@@ -4,6 +4,7 @@ Esta pieza es solo presentación. Toda la lógica vive en core/.
 """
 import streamlit as st
 import sys, os
+from datetime import datetime
 sys.path.insert(0, os.path.dirname(__file__))
 from core import datos, reglas
 

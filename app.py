@@ -173,7 +173,7 @@ def panel_usuarios():
         c2.markdown(f"{u['rol']}{ligado}")
         c3.markdown(estado, unsafe_allow_html=True)
         # No se puede tocar al admin principal
-        es_admin_principal = (u["rol"] == "Administrador" and u["usuario"] == "admin")
+        es_admin_principal = (u["rol"] == "Administrador" and u["usuario"] == "admin") or u["usuario"] == "consulta"
         if not es_admin_principal:
             if u["activo"]:
                 if c4.button("Desactivar", key=f"off{u['id']}"):
@@ -198,7 +198,10 @@ def panel_usuarios():
         if st.session_state.get(f"abriendo_perfil_{u['id']}"):
             with st.container(border=True):
                 if es_admin_principal:
-                    st.info("El administrador puede editar todo. No requiere permisos.")
+                    if u["usuario"] == "consulta":
+                        st.info("Usuario de SOLO CONSULTA. Ve todo y busca, pero no modifica nada. Fijo del sistema.")
+                    else:
+                        st.info("El administrador puede editar todo. No requiere permisos.")
                 else:
                     st.markdown(f"**Permisos de edición de {u['nombre']}**")
                     st.caption("Marca los campos que este usuario PUEDE editar. Los demás solo los verá.")
@@ -696,6 +699,9 @@ else:
         with t1: panel_usuarios()
         with t_base: panel_base()
         with t2: panel_historial()
+    elif u["rol"] == "Consulta":
+        # Solo lectura: únicamente la pestaña Buscar, ve todo pero no modifica
+        panel_busqueda()
     else:
         # Los demás roles: pueden buscar (ver todo lo pendiente) y su panel de aduana
         t_busc, t_pan = st.tabs(["🔎 Buscar", "🚛 Pantaco"])

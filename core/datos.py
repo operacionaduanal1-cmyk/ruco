@@ -96,7 +96,7 @@ def inicializar():
         tabla TEXT, registro_id INTEGER, usuario TEXT,
         campo TEXT, valor_anterior TEXT, valor_nuevo TEXT, fecha TEXT)""")
 
-    roles_base = ["Administrador", "Operaciones", "Finanzas", "Captura",
+    roles_base = ["Administrador", "Consulta", "Operaciones", "Finanzas", "Captura",
                   "Gestión/Reportes", "Consulta interna", "Consulta cliente"]
     for r in roles_base:
         _exec("INSERT OR IGNORE INTO roles (nombre) VALUES (?)", (r,))
@@ -107,6 +107,14 @@ def inicializar():
                  VALUES (?,?,?,?,1,?)""",
               ("Administrador RUCO", "admin", hash_password("admin123"),
                "Administrador", datetime.now().isoformat()))
+
+    # Usuario fijo de SOLO CONSULTA (ve todo, busca, pero no modifica nada)
+    existe_consulta, _ = _exec("SELECT id FROM usuarios WHERE usuario='consulta'")
+    if not existe_consulta:
+        _exec("""INSERT INTO usuarios (nombre, usuario, password_hash, rol, permisos, activo, creado)
+                 VALUES (?,?,?,?,?,1,?)""",
+              ("Consulta", "consulta", hash_password("consulta123"),
+               "Consulta", "[]", datetime.now().isoformat()))
 
 def autenticar(usuario, password):
     filas, _ = _exec(

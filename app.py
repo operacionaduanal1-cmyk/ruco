@@ -23,6 +23,13 @@ st.markdown("""
   --texto: #FFFFFF;
   --texto-sec: #9aa0a6;
 }
+/* Ocultar barra y menu de Streamlit */
+#MainMenu {visibility: hidden;}
+header[data-testid="stHeader"] {display: none;}
+[data-testid="stToolbar"] {display: none;}
+[data-testid="stDecoration"] {display: none;}
+footer {visibility: hidden;}
+.stAppDeployButton {display: none;}
 .stApp { background: #000000; color: #FFFFFF; }
 /* Texto general en blanco */
 .stApp, .stApp p, .stApp label, .stApp span, .stApp div,

@@ -228,6 +228,31 @@ def panel_usuarios():
                     else:
                         st.info("El administrador puede editar todo. No requiere permisos.")
                 else:
+                    # Editar datos del usuario (nombre, usuario, contraseña, rol)
+                    st.markdown(f"**Datos de {u['nombre']}**")
+                    ec1, ec2 = st.columns(2)
+                    ed_nombre = ec1.text_input("Nombre completo", value=u["nombre"], key=f"edu_nom_{u['id']}")
+                    ed_usuario = ec2.text_input("Usuario (para entrar)", value=u["usuario"], key=f"edu_usr_{u['id']}")
+                    ec3, ec4 = st.columns(2)
+                    ed_pass = ec3.text_input("Nueva contraseña (dejar vacío = sin cambio)",
+                                             type="password", key=f"edu_pwd_{u['id']}")
+                    roles_op = datos.roles_asignables("Administrador")
+                    rol_idx = roles_op.index(u["rol"]) if u["rol"] in roles_op else 0
+                    ed_rol = ec4.selectbox("Área / Rol", roles_op, index=rol_idx, key=f"edu_rol_{u['id']}")
+                    ed_cliente = u.get("cliente_ligado") or ""
+                    if ed_rol == "Consulta cliente":
+                        ed_cliente = st.text_input("Cliente ligado", value=ed_cliente, key=f"edu_cli_{u['id']}")
+                    if st.button("Guardar datos del usuario", type="primary", key=f"edu_save_{u['id']}"):
+                        ok, msg = datos.editar_usuario(
+                            u["id"], ed_nombre, ed_usuario, ed_rol, ed_cliente, actor,
+                            password=ed_pass if ed_pass else None)
+                        if ok:
+                            st.success(msg)
+                            st.rerun()
+                        else:
+                            st.error(msg)
+
+                    st.divider()
                     st.markdown(f"**Permisos de edición de {u['nombre']}**")
                     st.caption("Marca los campos que este usuario PUEDE editar. Los demás solo los verá.")
                     permisos_actuales = datos.obtener_permisos(u["id"])
@@ -242,7 +267,6 @@ def panel_usuarios():
                             if marcado:
                                 seleccion.append(clave)
                     if st.button("Guardar permisos", type="primary", key=f"savperm_{u['id']}"):
-                        # Conservar el permiso de gestionar_usuarios si lo tenía
                         if "gestionar_usuarios" in permisos_actuales:
                             seleccion.append("gestionar_usuarios")
                         datos.guardar_permisos(u["id"], seleccion, actor)

@@ -542,3 +542,22 @@ def roles_asignables(quien_crea_rol):
 # Permiso especial "gestionar_usuarios" se guarda dentro de permisos del usuario
 def puede_gestionar_usuarios(uid):
     return "gestionar_usuarios" in obtener_permisos(uid)
+
+
+def editar_usuario(uid, nombre, usuario, rol, cliente_ligado, admin_actor, password=None):
+    """Edita datos de un usuario. Si password viene, la cambia. Solo admin."""
+    # Verificar que el nuevo username no choque con otro
+    if usuario:
+        otro, _ = _exec("SELECT id FROM usuarios WHERE usuario=? AND id<>?",
+                        (usuario.strip().lower(), uid))
+        if otro:
+            return False, "Ese nombre de usuario ya lo tiene otra persona."
+    _exec("UPDATE usuarios SET nombre=?, usuario=?, rol=?, cliente_ligado=? WHERE id=?",
+          (nombre.strip(), usuario.strip().lower(), rol, cliente_ligado or None, uid))
+    if password:
+        _exec("UPDATE usuarios SET password_hash=? WHERE id=?",
+              (hash_password(password), uid))
+    _exec("""INSERT INTO historial (tabla, registro_id, usuario, campo, valor_anterior, valor_nuevo, fecha)
+             VALUES ('usuarios',?,?,?,?,?,?)""",
+          (uid, admin_actor, "editado", "", f"{nombre} ({rol})", datetime.now().isoformat()))
+    return True, "Usuario actualizado."

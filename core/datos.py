@@ -218,7 +218,7 @@ def crear_contenedor(aduana, contenedor_limpio, cliente, consecutivo, anio, foli
         (consecutivo, aduana, anio, folio, contenedor, cliente, estatus, creado, creado_por, activo)
         VALUES (?,?,?,?,?,?,?,?,?,1)""",
         (consecutivo, aduana, anio, folio, contenedor_limpio, cliente,
-         "CAPTURA", datetime.now().isoformat(), actor))
+         "", datetime.now().isoformat(), actor))
     # Historial
     _exec("""INSERT INTO historial (tabla, registro_id, usuario, campo, valor_anterior, valor_nuevo, fecha)
              VALUES ('contenedores',0,?,?,?,?,?)""",
@@ -376,7 +376,7 @@ def crear_contenedor_forzado(aduana, contenedor_limpio, cliente, consecutivo, an
         (consecutivo, aduana, anio, folio, contenedor, cliente, estatus, creado, creado_por, activo)
         VALUES (?,?,?,?,?,?,?,?,?,1)""",
         (consecutivo, aduana, anio, folio, contenedor_limpio, cliente,
-         "CAPTURA", datetime.now().isoformat(), actor))
+         "", datetime.now().isoformat(), actor))
     _exec("""INSERT INTO historial (tabla, registro_id, usuario, campo, valor_anterior, valor_nuevo, fecha)
              VALUES ('contenedores',0,?,?,?,?,?)""",
           (actor, "alta forzada", motivo, f"{consecutivo} {contenedor_limpio}", datetime.now().isoformat()))

@@ -444,8 +444,10 @@ def panel_aduana(aduana_key, aduana_nombre):
                         f"REF: {ct.get('referencia') or '—'} · PED: {ct.get('pedimento') or '—'}</div>",
                         unsafe_allow_html=True)
                     cols[1].markdown(f"CLIENTE: {ct.get('cliente') or '—'}  \nETA: {ct.get('eta') or '—'}")
-                    # Estatus pintado (sin desplegable; se cambia al editar)
-                    est_act = ct.get("estatus") or "CAPTURA"
+                    # Estatus pintado (vacío = SIN ESTATUS, en gris)
+                    est_raw = (ct.get("estatus") or "").strip()
+                    est_act = est_raw if est_raw else "SIN ESTATUS"
+                    color = reglas.color_estatus(est_raw)
                     cols[2].markdown(
                         f"<div style='background:{color};color:#fff;padding:6px 10px;border-radius:6px;"
                         f"text-align:center;font-weight:700;font-size:0.8rem'>{est_act}</div>",
@@ -540,7 +542,7 @@ def panel_busqueda():
                        f"ADUANA: {nombres_aduana.get(r['aduana'], r['aduana'])}")
             c.markdown(
                 f"<div style='background:{color};color:#fff;padding:3px 8px;border-radius:5px;"
-                f"text-align:center;font-weight:700;font-size:0.78rem'>{r.get('estatus') or '—'}</div>"
+                f"text-align:center;font-weight:700;font-size:0.78rem'>{(r.get('estatus') or '').strip() or 'SIN ESTATUS'}</div>"
                 f"<div style='font-size:0.72rem;color:#9aa0a6;margin-top:3px'>ETA: {r.get('eta') or '—'}</div>",
                 unsafe_allow_html=True)
 

@@ -142,22 +142,22 @@ def validar_fecha(valor):
 
 # --- Colores de estatus (para reconocer rápido) ---
 COLOR_ESTATUS = {
-    "CAPTURA": "#5B6B7E",            # gris (recién entró)
-    "PENDIENTE INFORMACION": "#8a6d3b",
-    "ANALISIS": "#3b6e8a",          # azul
-    "REVISION": "#3b6e8a",
-    "GLOSA": "#6f5499",             # morado
-    "PROGRAMADO": "#3b6e8a",
-    "PAGADO": "#d4a017",            # amarillo/dorado
-    "OK OPERACIONES": "#2e8b57",    # verde medio
-    "MODULADO": "#2e8b57",
-    "LIBERADO": "#2e8b57",
-    "DESPACHADO": "#1e7d34",        # verde fuerte (terminado bien)
-    "RETENIDO": "#b85c00",          # naranja
-    "PAMA": "#c0392b",              # rojo
-    "ABANDONO": "#c0392b",
-    "DESISTIDO": "#c0392b",
-    "CANCELADO": "#8b0000",         # rojo oscuro
+    "CAPTURA": "#5B6B7E",            # gris
+    "REVISION": "#5B6B7E",          # gris
+    "GLOSA": "#5B6B7E",             # gris
+    "OK OPERACIONES": "#5B6B7E",    # gris
+    "PENDIENTE INFORMACION": "#5B6B7E",
+    "ANALISIS": "#5B6B7E",
+    "PROGRAMADO": "#5B6B7E",
+    "PAGADO": "#b89640",            # amarillo tenue
+    "MODULADO": "#4a8a63",          # verde tenue
+    "LIBERADO": "#4a8a63",
+    "DESPACHADO": "#4a8a63",        # verde tenue
+    "RETENIDO": "#b07a4a",          # naranja tenue
+    "PAMA": "#a85a52",              # rojo tenue
+    "ABANDONO": "#a85a52",
+    "DESISTIDO": "#a85a52",
+    "CANCELADO": "#8a4a44",         # rojo tenue oscuro
 }
 
 def color_estatus(estatus):

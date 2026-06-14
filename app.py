@@ -72,6 +72,12 @@ div.stButton > button[kind="primary"] {
 div.stButton > button[kind="primary"]:hover { background:#4caf7d; }
 /* Botones secundarios oscuros */
 div.stButton > button { background:#1a1a1a; color:#FFFFFF; border:1px solid #333; }
+/* Botón del contenedor: texto grande y prominente */
+.lista-cont div.stButton > button { font-size:1.1rem; font-weight:800; letter-spacing:0.5px; }
+/* Cesto eliminar: naranja tenue */
+button[aria-label="Eliminar"], div[data-testid="column"]:last-child div.stButton > button {
+  background:#b07a4a !important; border-color:#c98a55 !important; color:#fff !important;
+}
 div.stButton > button:hover { background:#2a2a2a; border-color:#555; }
 /* Contenedores con borde */
 [data-testid="stExpander"], div[data-testid="stVerticalBlockBorderWrapper"] {
@@ -400,30 +406,23 @@ def panel_aduana(aduana_key, aduana_nombre):
                 else:
                     cols = st.columns([2.4, 2, 1.4, 0.6]) if es_admin else st.columns([2.4, 2, 1.4])
                     color = reglas.color_estatus(ct.get("estatus"))
-                    # Contenedor grande + ref/pedimento debajo. El contenedor es el botón de edición.
-                    cols[0].markdown(
-                        f"<div style='font-size:0.75rem;color:#9aa0a6'>{ct['consecutivo']}</div>"
-                        f"<div style='font-size:1.15rem;font-weight:800;letter-spacing:0.5px'>{ct['contenedor']}</div>"
-                        f"<div style='font-size:0.72rem;color:#9aa0a6'>REF: {ct.get('referencia') or '—'} · "
-                        f"PED: {ct.get('pedimento') or '—'}</div>",
-                        unsafe_allow_html=True)
-                    if cols[0].button("Abrir / editar", key=f"open_{ct['id']}"):
+                    # Contenedor como botón-link (al darle clic abre/cierra la ficha)
+                    if cols[0].button(ct['contenedor'], key=f"open_{ct['id']}",
+                                      help="Clic para abrir / editar"):
                         st.session_state[f"editando_{ct['id']}"] = not st.session_state.get(f"editando_{ct['id']}", False)
+                    cols[0].markdown(
+                        f"<div style='font-size:0.72rem;color:#9aa0a6;margin-top:-8px'>"
+                        f"REF: {ct.get('referencia') or '—'} · PED: {ct.get('pedimento') or '—'}</div>",
+                        unsafe_allow_html=True)
                     cols[1].markdown(f"CLIENTE: {ct.get('cliente') or '—'}  \nETA: {ct.get('eta') or '—'}")
-                    # Estatus pintado
+                    # Estatus pintado (sin desplegable; se cambia al editar)
                     est_act = ct.get("estatus") or "CAPTURA"
                     cols[2].markdown(
-                        f"<div style='background:{color};color:#fff;padding:4px 10px;border-radius:6px;"
+                        f"<div style='background:{color};color:#fff;padding:6px 10px;border-radius:6px;"
                         f"text-align:center;font-weight:700;font-size:0.8rem'>{est_act}</div>",
                         unsafe_allow_html=True)
-                    n_est = cols[2].selectbox("Cambiar", reglas.ESTATUS,
-                        index=reglas.ESTATUS.index(est_act) if est_act in reglas.ESTATUS else 0,
-                        key=f"est_{ct['id']}", label_visibility="collapsed")
-                    if n_est != est_act:
-                        datos.actualizar_campo_contenedor(ct["id"], "estatus", n_est, actor)
-                        st.rerun()
                     if es_admin:
-                        if cols[3].button("🗑️", key=f"del_{ct['id']}", help="Eliminar"):
+                        if cols[3].button("🗑️", key=f"del_{ct['id']}", help="Eliminar", type="secondary"):
                             st.session_state[f"borrando_{ct['id']}"] = True
                     # Pedir motivo al eliminar
                     if es_admin and st.session_state.get(f"borrando_{ct['id']}"):
@@ -443,7 +442,7 @@ def panel_aduana(aduana_key, aduana_nombre):
                         if mc[1].button("Cancelar", key=f"delno_{ct['id']}"):
                             st.session_state[f"borrando_{ct['id']}"] = False
                             st.rerun()
-                    # Ficha de edición (admin edita todo; ejecutivos abren a ver/editar permitido)
+                    # Ficha de edición (se abre al clic en el contenedor)
                     if st.session_state.get(f"editando_{ct['id']}"):
                         _ficha_edicion(ct, actor, es_admin)
 

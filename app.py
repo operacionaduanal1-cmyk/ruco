@@ -145,6 +145,7 @@ def header():
 def panel_usuarios():
     st.subheader("Gestión de usuarios")
     actor = st.session_state.usuario["usuario"]
+    mi_rol = st.session_state.usuario["rol"]
 
     with st.expander("➕ Crear nuevo usuario", expanded=False):
         c1, c2 = st.columns(2)
@@ -152,10 +153,18 @@ def panel_usuarios():
         usuario = c2.text_input("Usuario (para entrar)")
         c3, c4 = st.columns(2)
         password = c3.text_input("Contraseña inicial", type="password")
-        rol = c4.selectbox("Área / Rol", datos.listar_roles())
+        # Roles que puede asignar según quién es (admin ve Supervisión; supervisión solo operativos)
+        opciones_rol = datos.roles_asignables(mi_rol)
+        rol = c4.selectbox("Área / Rol", opciones_rol)
         cliente = ""
         if rol == "Consulta cliente":
             cliente = st.text_input("Cliente ligado (solo verá lo de este cliente)")
+        # Casilla extra: solo el admin puede dar permiso de gestionar usuarios, y solo a Supervisión
+        permite_gestion = False
+        if mi_rol == "Administrador" and rol == "Supervisión":
+            permite_gestion = st.checkbox(
+                "Permitir que este supervisor cree usuarios operativos",
+                help="Si lo activas, podrá crear usuarios operativos (nunca administradores ni supervisores).")
         if st.button("Crear usuario", type="primary"):
             if not (nombre and usuario and password):
                 st.warning("Llena nombre, usuario y contraseña.")
@@ -164,24 +173,33 @@ def panel_usuarios():
             else:
                 ok, msg = datos.crear_usuario(nombre, usuario, password, rol, cliente, actor)
                 if ok:
+                    # Si es supervisión con gestión, guardar ese permiso
+                    if permite_gestion:
+                        nuevo = datos.obtener_usuario_por_username(usuario.strip().lower())
+                        if nuevo:
+                            datos.guardar_permisos(nuevo["id"], ["gestionar_usuarios"], actor)
                     st.success(msg)
+                    st.rerun()
                 else:
                     st.error(msg)
-                if ok: st.rerun()
 
     st.markdown("##### Usuarios registrados")
+    soy_admin = mi_rol == "Administrador"
     for u in datos.listar_usuarios():
         c1, c2, c3, c4, c5 = st.columns([2.5, 2, 1.3, 1, 1])
         estado = "<span class='badge-on'>● Activo</span>" if u["activo"] else "<span class='badge-off'>○ Inactivo</span>"
         ligado = f" · cliente: {u['cliente_ligado']}" if u["cliente_ligado"] else ""
-        # Nombre clicable -> abre su perfil de permisos
-        if c1.button(f"{u['nombre']}  ·  {u['usuario']}", key=f"perfil_{u['id']}"):
-            st.session_state[f"abriendo_perfil_{u['id']}"] = not st.session_state.get(f"abriendo_perfil_{u['id']}", False)
+        # Nombre clicable -> abre perfil de permisos (solo el admin puede)
+        if soy_admin:
+            if c1.button(f"{u['nombre']}  ·  {u['usuario']}", key=f"perfil_{u['id']}"):
+                st.session_state[f"abriendo_perfil_{u['id']}"] = not st.session_state.get(f"abriendo_perfil_{u['id']}", False)
+        else:
+            c1.markdown(f"**{u['nombre']}**  \n`{u['usuario']}`")
         c2.markdown(f"{u['rol']}{ligado}")
         c3.markdown(estado, unsafe_allow_html=True)
-        # No se puede tocar al admin principal
-        es_admin_principal = (u["rol"] == "Administrador" and u["usuario"] == "admin") or u["usuario"] == "consulta"
-        if not es_admin_principal:
+        # Solo el admin edita/elimina usuarios. Supervisión solo crea.
+        es_protegido = (u["rol"] == "Administrador" and u["usuario"] == "admin") or u["usuario"] == "consulta"
+        if soy_admin and not es_protegido:
             if u["activo"]:
                 if c4.button("Desactivar", key=f"off{u['id']}"):
                     datos.cambiar_estado_usuario(u["id"], False, actor); st.rerun()
@@ -201,10 +219,10 @@ def panel_usuarios():
                     st.session_state[f"borrar_user_{u['id']}"] = False
                     st.rerun()
 
-        # Perfil de permisos (al hacer clic en el nombre)
-        if st.session_state.get(f"abriendo_perfil_{u['id']}"):
+        # Perfil de permisos (solo el admin lo ve)
+        if soy_admin and st.session_state.get(f"abriendo_perfil_{u['id']}"):
             with st.container(border=True):
-                if es_admin_principal:
+                if es_protegido:
                     if u["usuario"] == "consulta":
                         st.info("Usuario de SOLO CONSULTA. Ve todo y busca, pero no modifica nada. Fijo del sistema.")
                     else:
@@ -224,6 +242,9 @@ def panel_usuarios():
                             if marcado:
                                 seleccion.append(clave)
                     if st.button("Guardar permisos", type="primary", key=f"savperm_{u['id']}"):
+                        # Conservar el permiso de gestionar_usuarios si lo tenía
+                        if "gestionar_usuarios" in permisos_actuales:
+                            seleccion.append("gestionar_usuarios")
                         datos.guardar_permisos(u["id"], seleccion, actor)
                         st.success("Permisos guardados.")
                         st.session_state[f"abriendo_perfil_{u['id']}"] = False
@@ -709,8 +730,21 @@ else:
     elif u["rol"] == "Consulta":
         # Solo lectura: únicamente la pestaña Buscar, ve todo pero no modifica
         panel_busqueda()
+    elif u["rol"] == "Supervisión":
+        # Supervisión: Buscar y Pantaco. Usuarios SOLO si el admin le dio ese permiso.
+        usr = datos.obtener_usuario_por_username(u["usuario"])
+        gestiona = usr and datos.puede_gestionar_usuarios(usr["id"])
+        if gestiona:
+            t_busc, t_pan, t_us = st.tabs(["🔎 Buscar", "🚛 Pantaco", "👥 Usuarios"])
+            with t_busc: panel_busqueda()
+            with t_pan: panel_aduana("PANTACO", "Pantaco")
+            with t_us: panel_usuarios()
+        else:
+            t_busc, t_pan = st.tabs(["🔎 Buscar", "🚛 Pantaco"])
+            with t_busc: panel_busqueda()
+            with t_pan: panel_aduana("PANTACO", "Pantaco")
     else:
-        # Los demás roles: pueden buscar (ver todo lo pendiente) y su panel de aduana
+        # Los demás roles operativos: buscar y su panel de aduana
         t_busc, t_pan = st.tabs(["🔎 Buscar", "🚛 Pantaco"])
         with t_busc: panel_busqueda()
         with t_pan: panel_aduana("PANTACO", "Pantaco")

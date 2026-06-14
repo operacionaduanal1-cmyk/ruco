@@ -521,3 +521,24 @@ def obtener_permisos(uid):
 def obtener_usuario_por_username(username):
     filas, _ = _exec("SELECT * FROM usuarios WHERE usuario=?", (username,))
     return filas[0] if filas else None
+
+
+# ============================================================
+# ROLES Y JERARQUÍA
+# ============================================================
+# Roles operativos: los únicos que se pueden asignar al crear usuarios normales
+ROLES_OPERATIVOS = ["Operaciones", "Finanzas", "Captura", "Gestión/Reportes",
+                    "Consulta interna", "Consulta cliente"]
+
+def roles_asignables(quien_crea_rol):
+    """Qué roles puede asignar quien está creando un usuario.
+    - Administrador (admin): puede crear Supervisión y operativos.
+    - Supervisión (con permiso): solo operativos.
+    """
+    if quien_crea_rol == "Administrador":
+        return ["Supervisión"] + ROLES_OPERATIVOS
+    return ROLES_OPERATIVOS  # supervisión solo crea operativos
+
+# Permiso especial "gestionar_usuarios" se guarda dentro de permisos del usuario
+def puede_gestionar_usuarios(uid):
+    return "gestionar_usuarios" in obtener_permisos(uid)

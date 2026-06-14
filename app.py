@@ -406,14 +406,14 @@ def _ficha_edicion(ct, actor, es_admin):
     with r3[2]:
         if puede("estatus"): n_est = st.selectbox("ESTATUS", opciones_con_actual(ests, ct.get("estatus")), key=f"ed_est_{ct['id']}")
         else: mostrar_solo_lectura("ESTATUS", ct.get("estatus") or "SIN ESTATUS")
-    # Fila 4: fecha de pago, T3
+    # Fila 4: módulo T3, fecha de pago
     r4 = st.columns(3)
     with r4[0]:
-        if puede("fecha_pago"): n_fp = st.text_input("FECHA DE PAGO", value=ct.get("fecha_pago") or "", placeholder="dd/mm/yyyy", max_chars=10, key=f"ed_fp_{ct['id']}")
-        else: mostrar_solo_lectura("FECHA DE PAGO", ct.get("fecha_pago"))
-    with r4[1]:
         if puede("modulo_t3"): n_t3 = st.selectbox("MODULO T3", opciones_con_actual(t3s, ct.get("modulo_t3")), key=f"ed_t3_{ct['id']}")
         else: mostrar_solo_lectura("MODULO T3", ct.get("modulo_t3"))
+    with r4[1]:
+        if puede("fecha_pago"): n_fp = st.text_input("FECHA DE PAGO", value=ct.get("fecha_pago") or "", placeholder="dd/mm/yyyy", max_chars=10, key=f"ed_fp_{ct['id']}")
+        else: mostrar_solo_lectura("FECHA DE PAGO", ct.get("fecha_pago"))
     # Observaciones acumulativas (historial con autor, no se borra)
     obs_historial = ct.get("observaciones") or ""
     st.markdown("<div style='font-size:0.72rem;color:#9aa0a6;margin-top:8px'>OBSERVACIONES</div>", unsafe_allow_html=True)
@@ -427,7 +427,7 @@ def _ficha_edicion(ct, actor, es_admin):
             height=160,
             key=f"ed_obs_admin_{ct['id']}")
         st.caption("Puedes corregir o borrar cualquier observación. Para agregar una nueva con tu nombre y fecha, usa el campo de abajo.")
-        n_obs = st.text_input("Agregar nueva observación (se anexa con tu nombre y la fecha)",
+        n_obs = st.text_input("AGREGAR NUEVA OBSERVACIÓN",
                               value="", placeholder="Escribe aquí la nueva observación...",
                               key=f"ed_obs_nueva_{ct['id']}")
     else:
@@ -440,7 +440,7 @@ def _ficha_edicion(ct, actor, es_admin):
         else:
             st.caption("Sin observaciones todavía.")
         if puede("observaciones"):
-            n_obs = st.text_area("Agregar nueva observación (se anexa con tu nombre y la fecha)",
+            n_obs = st.text_area("AGREGAR NUEVA OBSERVACIÓN",
                                  value="", placeholder="Escribe aquí la nueva observación...",
                                  key=f"ed_obs_{ct['id']}")
 

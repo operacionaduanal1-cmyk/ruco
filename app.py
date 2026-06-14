@@ -89,6 +89,13 @@ div.stButton > button:hover { background:#2a2a2a; border-color:#555; }
 .stTabs [aria-selected="true"] { color:#E8A33D !important; }
 .badge-on { color:#3ddc84; font-weight:700; }
 .badge-off { color:#ff6b6b; font-weight:700; }
+/* Suavizar el oscurecido que aparece mientras la app recarga */
+[data-testid="stStatusWidget"] { display:none; }
+div[data-stale="true"], .stApp [data-stale="true"] {
+  opacity: 1 !important;
+  transition: opacity 0.15s ease;
+}
+[data-testid="stAppViewBlockContainer"], .element-container { opacity: 1 !important; }
 </style>
 """, unsafe_allow_html=True)
 
